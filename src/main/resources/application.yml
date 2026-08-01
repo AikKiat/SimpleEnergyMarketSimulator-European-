@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: dispatch-signal
+
+  #Postgres: now used solely for the analyst's memory (insight table)
+  datasource:
+    url: jdbc:postgresql://localhost:5432/dispatch
+    username: dispatch
+    password: dispatch
+  jpa:
+    hibernate:
+      # 'update' = let Hibernate create/adjust tables from our @Entity classes.
+      # Great for dev; in production you'd manage schema with migrations (Flyway).
+      ddl-auto: update
+    show-sql: false
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # Jackson 3 (tools.jackson) variant — matches the Jackson version Spring Boot 4 ships.
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+    consumer:
+      group-id: dispatch-signal
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+      properties:
+        # Trust our own model packages when reconstructing JSON from the topic.
+        spring.json.trusted.packages: com.example.demo.ingestion.model,com.example.demo.insight
+
+# Application-specific knobs (read via @Value / @ConfigurationProperties).
+app:
+  ingestion:
+    carbon-intensity:
+      base-url: https://api.carbonintensity.org.uk
+      # The upstream feed updates every half hour; polling faster just wastes calls.
+      poll-interval-ms: 300000
+
+  # Origins allowed to call /api/**. Add the Vercel URL here once deployed.
+  cors:
+    allowed-origins: http://localhost:5173,http://localhost:8080
+
+logging:
+  level:
+    com.example.demo: INFO

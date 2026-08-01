@@ -1,0 +1,43 @@
+# Local infrastructure: a single-node Kafka broker (KRaft mode, no Zookeeper)
+# and the Postgres instance backing the plant registry.
+# Start with:  docker compose up -d
+# Stop with:   docker compose down     (add -v to also wipe stored messages + rows)
+services:
+  kafka:
+    image: apache/kafka:3.9.1
+    container_name: dispatch-kafka
+    ports:
+      - "9092:9092"   # host apps (the Spring Boot app) connect here
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+  # Plant registry store — matches spring.datasource.* in application.yml.
+  postgres:
+    image: postgres:17
+    container_name: dispatch-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: dispatch
+      POSTGRES_USER: dispatch
+      POSTGRES_PASSWORD: dispatch
+    volumes:
+      - dispatch-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dispatch -d dispatch"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  dispatch-pgdata:

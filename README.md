@@ -121,7 +121,7 @@ Two honest caveats worth stating:
 
 ## Hosted on
 
-| Part | Where | Status |
+| Part | Where |
 |---|---|---|
 | Frontend | **Vercel** https://simple-energy-market-simulato-git-835623-millerman764s-projects.vercel.app/ |
 | Backend | AWS EC2 (`t3.small`) + Docker Compose, nginx behind Cloudflare |
@@ -167,7 +167,5 @@ cd frontend && npm run build:spring   # builds, then copies into src/main/resour
 - **Frontend / lesson engine:** TypeScript + React (declarative lessons: plants,
   controls, and triggers as data)
 - **Simulation core:** a shared merit-order clearing engine
-- **AI analyst:** Anthropic Claude API (structured outputs + prompt caching), with
-  a lightweight store for session memory
 - **Visualisation (in progress):** a graphical three.js front-end to show plants,
   bidding, and the clearing price as a proper little game

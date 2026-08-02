@@ -12,7 +12,8 @@ import org.springframework.context.annotation.Configuration;
  * Without one the app still starts and every other feature works; requests to
  * /api/insight simply come back as FAILED with a clear message.
  */
-@Configuration
+// AI analyst disabled for now
+// @Configuration
 public class AnthropicConfig {
 
     private static final Logger log = LoggerFactory.getLogger(AnthropicConfig.class);

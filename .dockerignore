@@ -1,0 +1,16 @@
+# The React app is served by Vercel, not by Spring — keep it out of the image
+# entirely. This also stops a stale local build in src/main/resources/static
+# from being baked in.
+frontend/
+src/main/resources/static/
+
+target/
+.git/
+.gitignore
+.idea/
+*.iml
+.vscode/
+docs/
+*.md
+.env
+.env.*

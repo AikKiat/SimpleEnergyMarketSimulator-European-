@@ -2,17 +2,25 @@ spring:
   application:
     name: dispatch-signal
 
+  # AI analyst disabled, so there is no Postgres to connect to for now
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration
+      - org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
+      - org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration
+
   #Postgres: now used solely for the analyst's memory (insight table)
-  datasource:
-    url: jdbc:postgresql://localhost:5432/dispatch
-    username: dispatch
-    password: dispatch
-  jpa:
-    hibernate:
-      # 'update' = let Hibernate create/adjust tables from our @Entity classes.
-      # Great for dev; in production you'd manage schema with migrations (Flyway).
-      ddl-auto: update
-    show-sql: false
+  # datasource:
+  #   url: jdbc:postgresql://localhost:5432/dispatch
+  #   username: dispatch
+  #   password: dispatch
+  # jpa:
+  #   hibernate:
+  #     # 'update' = let Hibernate create/adjust tables from our @Entity classes.
+  #     # Great for dev; in production you'd manage schema with migrations (Flyway).
+  #     ddl-auto: update
+  #   show-sql: false
 
   kafka:
     bootstrap-servers: localhost:9092

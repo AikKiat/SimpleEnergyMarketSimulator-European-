@@ -39,12 +39,17 @@ node_modules/
 # Local env overrides — .env.example is committed, real values are not
 .env
 .env.local
-# Everything under static/ is now Vite build output — regenerate with
-#   cd frontend && npm run build
 /src/main/resources/static/
 
 **/.env
 **/.env.*
+!**/.env.example
+!**/.env.*.example
+
+nginx/certs/
+*.key
+*.pem
+*.crt
 
 **/.cmd
 **/.md

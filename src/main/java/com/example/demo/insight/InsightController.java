@@ -12,8 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
-@RestController
-@RequestMapping("/api/insight")
+// @RestController
+// @RequestMapping("/api/insight")
 public class InsightController {
 
     public record AskRequest(

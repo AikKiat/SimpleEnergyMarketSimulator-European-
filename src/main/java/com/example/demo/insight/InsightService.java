@@ -35,7 +35,8 @@ import java.util.stream.Collectors;
  *       every single time.
  * </ul>
  */
-@Service
+
+// @Service
 public class InsightService {
 
     private static final Logger log = LoggerFactory.getLogger(InsightService.class);

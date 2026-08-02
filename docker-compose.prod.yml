@@ -1,0 +1,66 @@
+# Production stack for a single EC2 box.
+#
+# Three containers: Kafka, the Spring app, and nginx terminating TLS with a
+# Cloudflare Origin Certificate. No Postgres — the AI analyst is switched off
+# (see the commented annotations in the insight package), so nothing needs a
+# database.
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+
+services:
+  kafka:
+    image: apache/kafka:3.9.1
+    container_name: dispatch-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      # Must be the compose service name, not localhost. The app container
+      # resolves the broker by this address after the initial handshake, so
+      # "localhost" here would send it back to its own container and hang.
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_HEAP_OPTS: -Xmx512m -Xms512m
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    # Deliberately no "ports:" — the broker is reachable only from the compose
+    # network. Publishing 9092 to the internet would be an open, unauthenticated
+    # Kafka broker.
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dispatch-app
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Which browser origins may call /api/**. Set VERCEL_ORIGIN in .env.prod.
+      APP_CORS_ALLOWED_ORIGINS: ${VERCEL_ORIGIN}
+    depends_on:
+      - kafka
+    expose:
+      - "8080"
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: dispatch-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  kafka-data:

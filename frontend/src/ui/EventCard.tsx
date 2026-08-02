@@ -7,35 +7,39 @@
  * lecturing and starts reporting.
  */
 
-import { useCallback, useRef, useState } from 'react'
+//AI analyst functionality is already built in, inclusive of frontend...but for now, keeping things simple.
+//Will eventually wire up a Psql database into the architecture, and bring up a stateful AI analyst that can
+//substantiate analyses.
+
+import {  useState } from 'react'
 import type { MarketEvent, Snapshot } from '../events'
-import { explain, type InsightState } from '../insight'
+// import { explain, type InsightState } from '../insight'
 
 export function EventCard({
   event,
-  snapshot,
+  // snapshot,
   onDismiss,
 }: {
   event: MarketEvent
   snapshot: Snapshot
   onDismiss: (id: string) => void
 }) {
-  const [state, setState] = useState<InsightState>({ status: 'idle' })
+  // const [state, setState] = useState<InsightState>({ status: 'idle' })
   const [showReflecting, setShowReflecting] = useState(false)
-  const abort = useRef<AbortController | null>(null)
+  // const abort = useRef<AbortController | null>(null)
 
-  const ask = useCallback(async () => {
-    abort.current?.abort()
-    const controller = new AbortController()
-    abort.current = controller
-    setState({ status: 'pending' })
-    try {
-      const insight = await explain(event, snapshot, controller.signal)
-      setState({ status: 'ready', insight })
-    } catch (e) {
-      setState({ status: 'error', message: e instanceof Error ? e.message : 'Unknown error' })
-    }
-  }, [event, snapshot])
+  // const ask = useCallback(async () => {
+  //   abort.current?.abort()
+  //   const controller = new AbortController()
+  //   abort.current = controller
+  //   setState({ status: 'pending' })
+  //   try {
+  //     const insight = await explain(event, snapshot, controller.signal)
+  //     setState({ status: 'ready', insight })
+  //   } catch (e) {
+  //     setState({ status: 'error', message: e instanceof Error ? e.message : 'Unknown error' })
+  //   }
+  // }, [event, snapshot])
 
   return (
     <div className={`event-card sev-${event.severity}`}>
@@ -65,25 +69,25 @@ export function EventCard({
         <div className="event-Reflecting" dangerouslySetInnerHTML={{ __html: event.reflecting }} />
       )}
 
-      {state.status === 'error' && <div className="event-error">{state.message}</div>}
+      {/* {state.status === 'error' && <div className="event-error">{state.message}</div>} */}
 
-      {state.status === 'ready' && (
+      {/* {state.status === 'ready' && (
         <div className="event-insight">
           <div className="insight-headline">{state.insight.headline}</div>
           <InsightRow label="Why" text={state.insight.why} />
           <InsightRow label="Watch" text={state.insight.watchNext} />
           <InsightRow label="Action" text={state.insight.action} />
         </div>
-      )}
+      )} */}
     </div>
   )
 }
 
-function InsightRow({ label, text }: { label: string; text: string }) {
-  return (
-    <div className="insight-row">
-      <span className="insight-label">{label}</span>
-      <span>{text}</span>
-    </div>
-  )
-}
+// function InsightRow({ label, text }: { label: string; text: string }) {
+//   return (
+//     <div className="insight-row">
+//       <span className="insight-label">{label}</span>
+//       <span>{text}</span>
+//     </div>
+//   )
+// }

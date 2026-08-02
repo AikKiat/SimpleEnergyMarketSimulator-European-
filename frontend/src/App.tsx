@@ -6,6 +6,7 @@ import { Board } from './ui/Board'
 import { Controls, ReflectionCard, ReflectionNav, type ControlHint } from './ui/ReflectionPanel'
 import { ReflectionReader, type ReaderView } from './ui/ReflectionReader'
 import { SyncPanel } from './ui/SyncPanel'
+import { GithubLink } from './ui/GithubLink'
 import { formatSettlement, useLiveMarket } from './market'
 import { EventCard } from './ui/EventCard'
 import { EventFeed } from './ui/EventFeed'
@@ -390,9 +391,12 @@ export default function App() {
             <div className="brand-sub">Simple Simulation</div>
           </div>
         </div>
+        <GithubLink />
+        <br/>
         <div>
           Some concepts learnt:
         </div>
+        <br/>
 
         <ReflectionNav reflections={REFLECTIONS} currentId={reflectionId} onSelect={selectReflection} />
         <ReflectionCard reflection={reflection} onOpen={() => setReaderView('full')} />

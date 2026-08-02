@@ -1511,3 +1511,42 @@ body {
     flex-wrap: wrap;
   }
 }
+
+/* Link out to the source repo. Follows the .pill idiom so it reads as part of
+   the same set of controls rather than a stray hyperlink. */
+.github-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 14px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+  text-decoration: none;
+  background: var(--panel);
+  border: 2.5px solid var(--line);
+  border-radius: 12px;
+  padding: 9px 12px;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.12s ease;
+}
+
+.github-link:hover {
+  transform: translate(-1px, -1px);
+  background: #fff;
+}
+
+.github-link:active {
+  transform: translate(0, 0);
+}
+
+/* Keyboard focus must stay visible — the hover cue alone is mouse-only. */
+.github-link:focus-visible {
+  outline: 3px solid var(--accent-2);
+  outline-offset: 2px;
+}
+
+.github-mark {
+  flex: none;
+}

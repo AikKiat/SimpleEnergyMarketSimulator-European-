@@ -123,8 +123,8 @@ Two honest caveats worth stating:
 
 | Part | Where | Status |
 |---|---|---|
-| Frontend | **Vercel** — `<your-project>.vercel.app` | Live |
-| Backend | AWS EC2 (`t3.small`) + Docker Compose, nginx behind Cloudflare | Not yet deployed — see [DEPLOY.md](DEPLOY.md) |
+| Frontend | **Vercel** https://simple-energy-market-simulato-git-835623-millerman764s-projects.vercel.app/ |
+| Backend | AWS EC2 (`t3.small`) + Docker Compose, nginx behind Cloudflare |
 
 The frontend runs entirely standalone: the whole simulation — merit order,
 clearing price, hedging, cap-and-trade — is computed in the browser, so the live

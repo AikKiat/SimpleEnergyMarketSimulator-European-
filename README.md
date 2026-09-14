@@ -134,9 +134,9 @@ However, here are some caveats:
 ## Hosted on
 
 | Part | Where |
-|---|---|---|
-| Frontend | **Vercel** https://simple-energy-market-simulator-euro-one.vercel.app/ |
-| Backend | AWS EC2 (`t3.small`) + Docker Compose, nginx behind Cloudflare, using Strict(Full) |
+|---|---|
+| Frontend | **Vercel** — [simple-energy-market-simulator-euro-one.vercel.app](https://simple-energy-market-simulator-euro-one.vercel.app/) |
+| Backend | **AWS EC2** (`t3.small`) + Docker Compose — nginx behind Cloudflare, SSL mode Full (strict) — [emseuro.millerman117.com](https://emseuro.millerman117.com/healthz) |
 
 The frontend runs entirely standalone: the whole simulation - merit order,
 clearing price, hedging, cap-and-trade - is computed in the browser.

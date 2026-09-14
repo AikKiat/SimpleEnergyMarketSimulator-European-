@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Stage } from './scene/Stage'
-import { Board } from './ui/Board'
+import { Board, HEDGE_HISTORY_POINTS, type HedgeSample } from './ui/Board'
 import { Controls, ReflectionCard, ReflectionNav, type ControlHint } from './ui/ReflectionPanel'
 import { ReflectionReader, type ReaderView } from './ui/ReflectionReader'
 import { SyncPanel } from './ui/SyncPanel'
@@ -40,7 +40,7 @@ export default function App() {
 
   const [readerView, setReaderView] = useState<ReaderView>("full")  //start off maxed out. Want to present my learning which is important.
  
-  const [market, setMarket] = useState<MarketPriceCategories>(defaultMarket) //Here we set the default Market Object, which is basically an object containing the default prices for each fuel type -> carbon, gas, coal, nuclear
+  const [market, setMarket] = useState<MarketPriceCategories>(() => ({ ...defaultMarket(), ...reflection.initialMarket })) //Here we set the default Market Object, which is basically an object containing the default prices for each fuel type -> carbon, gas, coal, nuclear
   const [powerPrice, setPowerPrice] = useState(reflection.initialPrice ?? reflection.walkForward?.base ?? 75)
   const [demand, setDemand] = useState(reflection.demand?.initial ?? 1000)
   const [bids, setBids] = useState<Record<string, number>>({})
@@ -155,6 +155,14 @@ export default function App() {
   earnRateRef.current = earnRate
 
 
+  // Rolling record of hedged vs unhedged margin.
+  const [hedgeHistory, setHedgeHistory] = useState<HedgeSample[]>([])
+  const hedgeSampleRef = useRef<HedgeSample | undefined>(undefined)
+  hedgeSampleRef.current = hedge
+    ? { spot: marketPrice, hedged: hedge.hedgedPerHour, unhedged: hedge.unhedgedPerHour }
+    : undefined
+
+
 
 
   // The clock closes over state, so the cap settings are a useref to save the value + dont keep triggering re-renders.
@@ -182,13 +190,14 @@ export default function App() {
 
   const resetReflection = useCallback((next: Reflection) => {
     walkForward.current = makeWalkForward(next.walkForward)
-    setMarket(defaultMarket())
+    setMarket({ ...defaultMarket(), ...next.initialMarket })
     setPowerPrice(next.initialPrice ?? next.walkForward?.base ?? 75)
     setDemand(next.demand?.initial ?? 1000)
     setBids({})
     setAvailability({})
     setContractMw(next.contract?.mw ?? 0)
     setContractPrice(next.contract?.price ?? 90)
+    setHedgeHistory([])
     setCarbonMode('tax')
     setCap(next.carbonMarket?.initialCapTonnesPerHour ?? 1000)
     setCapSecondsPerYear(5)
@@ -218,6 +227,9 @@ export default function App() {
     const timer = window.setInterval(() => {
       if (reflection.priceControl === 'walkForward' && playing) setPowerPrice(walkForward.current.step())
       setprofitAndLoss((p) => p + earnRateRef.current * TICK_HOURS)
+
+      const sample = hedgeSampleRef.current
+      if (sample) setHedgeHistory((h) => [...h, sample].slice(-HEDGE_HISTORY_POINTS))
 
       // Ratchet the emissions cap down. Real ETS caps decline over years on a
       // linear trajectory; here a "year" is compressed to a few seconds so the
@@ -479,6 +491,7 @@ export default function App() {
           marketClearing={marketClearing}
           demandMw={reflection.mode === 'auction' ? demand : undefined}
           hedge={hedge}
+          hedgeHistory={hedgeHistory}
           liveIntensity={live.liveIntensity}
           carbonPrice={effectiveMarket.carbonPrice}
           carbon={carbonResult}

@@ -68,6 +68,7 @@ export interface Reflection {
   //based on the price, as aforementioned all the other factors must be considered to decide when a plant is economically viable to be run or not. Simplistic for this lesson, way more complex in the real world.
   priceControl: 'manual' | 'walkForward'
   initialPrice?: number
+  initialMarket?: Partial<MarketPriceCategories>
   walkForward?: WalkOptions // walkForward algorithm that simulates price change.
   demand?: { initial: number;} //Inelastic demand bid for a particular Day Ahead Market. Changed using slider
   contract?: { mw: number; price: number }
@@ -334,19 +335,21 @@ export const REFLECTIONS: Reflection[] = [
   },
   {
     id: 6,
-    title: 'Forward hedging: forwards, futures, and PPAs',
-    subtitle: 'The Day Ahead is a platform that systematically settles prices and power supply contractual guarantees for the following day. \
-    However, it is still exposed to spot-price volatility. \
-    Therefore, forward and futures contracts establish the next level of certainty through long term deals, enabling resiliency and forecasting.',
+    title: 'Forward hedging using contracts',
+    subtitle: 'The Day Ahead market is just one component of the greater wholesale electricity and energy market. We also have hedging in the form of forward contracts in the forward market, as well as futures traded over a centralised exchange. \
+    Forward contracts are a way of dealing with spot price voltaility, and ensuring long term stable deals between producers, and consumers. \
+    It is a next level of certainty. In this chapter I describe what I have learnt in a broad sense, and the toy simulator demonstrates the different in net revenue generated \
+    from a forward contract, as opposed to simply buying and selling on the market.',
     content: chapterContent(6),
     mode: 'priceTaking',
     priceControl: 'walkForward',
-    walkForward: { base: 85, reversion: 0.04, volatility: 26, floor: -20, ceiling: 260 },
+    initialMarket: { gasPrice: 10 }, //put this here --> we dont want the plant to stop. Its from Chapter 3 and for Chapter 6 key point is to show the difference hedging makes. The plant cannot just stop halfway in this toy simulation.
+    walkForward: { base: 85, reversion: 0.04, volatility: 26, floor: 40, ceiling: 260 },
     contract: { mw: 600, price: 90 },
     plants: [{ id: 'ccgt', name: 'Modern CCGT Exp', fuel: 'GAS', capacityMw: 800, efficiency: 0.55, co2PerMwh: 0.35 }],
     controls: [
-      { key: 'contractMw', target: 'contractMw', label: 'Volume sold forward', min: 0, max: 800, step: 25, unit: 'MW' },
-      { key: 'contractPrice', target: 'contractPrice', label: 'Agreed forward price', min: 40, max: 150, step: 1, unit: '£/MWh' },
+      { key: 'contractMw', target: 'contractMw', label: 'Q_contracted — volume sold forward', min: 0, max: 800, step: 25, unit: 'MW' },
+      { key: 'contractPrice', target: 'contractPrice', label: 'P_fixed — agreed forward price', min: 40, max: 150, step: 1, unit: '£/MWh' },
       { key: 'gasPrice', target: 'market', label: 'Gas price', min: 5, max: 100, step: 1, unit: '£/MWh' },
     ],
     triggers: [

@@ -1017,6 +1017,17 @@ body {
   padding: 3px 0;
 }
 
+/* The Q_produced - Q_contracted arithmetic, shown so the exposure number is not
+   something the reader has to take on trust. */
+.hedge-row.quiet {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  border-top: 1px dotted var(--ink-soft);
+  margin-top: 4px;
+  padding-top: 6px;
+}
+
 .hedge-row.strong {
   font-size: 15px;
   font-weight: 900;
@@ -1031,6 +1042,73 @@ body {
   line-height: 1.45;
   color: var(--ink-soft);
   margin-top: 7px;
+}
+
+/* The two margin lines share one y-scale, so the flatter line really is the
+   steadier one. preserveAspectRatio="none" stretches the box to the panel width,
+   hence non-scaling-stroke to stop the strokes being squashed with it. */
+.hedge-chart {
+  display: block;
+  width: 100%;
+  height: 74px;
+  margin-top: 10px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: #f8fcff;
+  overflow: visible;
+}
+
+.hedge-chart-line {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.hedge-chart-line.unhedged {
+  stroke: #f97316;
+  stroke-dasharray: 4 3;
+}
+
+.hedge-chart-line.hedged {
+  stroke: #0369a1;
+}
+
+.hedge-chart-zero {
+  stroke: var(--ink-soft);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  opacity: 0.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.hedge-legend {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hedge-key::before {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 3px;
+  margin-right: 5px;
+  vertical-align: middle;
+  border-radius: 2px;
+}
+
+.hedge-key.unhedged::before {
+  background: #f97316;
+}
+
+.hedge-key.hedged::before {
+  background: #0369a1;
 }
 
 .stat {

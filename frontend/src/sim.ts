@@ -286,22 +286,25 @@ export function clearCarbonMarket(
 
 //Hedging
 export interface HedgeResult {
-  /** What you'd earn with no forward contract at all — swings with the price. */
+  //What you'd earn with no forward contract at all — swings with the price. 
   unhedgedPerHour: number
-  /** What you actually earn once the contract is settled — much steadier. */
+  //What you actually earn once the contract is settled — much steadier. 
   hedgedPerHour: number
-  /** Revenue from the volume sold at the agreed fixed price. */
+  //Revenue from the volume sold at the agreed fixed price. 
   fixedContractRevenuePerHour: number
-  /** Hedged margin less unhedged margin; positive when fixed price exceeds spot. */
+  //Hedged margin less unhedged margin; positive when fixed price exceeds spot. 
   hedgeDifferenceFromSpotPerHour: number
   spotRevenuePerHour: number
   costPerHour: number
+  spotExposureMw: number //Q_produced - Q_contracted: the volume still linked to spot price
+  producedMw: number //Q_produced: what the plant actually generated this hour
+  contractedMw: number //Q_contracted: what was pre-sold, generated or not
 }
 
 /**
  * Calculate a plant's hour with a physical fixed-price forward contract.
  *
- *   Profit = (Q_spot − Q_contract) × P_spot
+ *   Profit = (Q_spot - Q_contract) × P_spot
  *          +  Q_contract × P_contract
  *          −  Cost(Q_spot)
  *
@@ -313,7 +316,8 @@ export interface HedgeResult {
  * The non-obvious consequence: once you're heavily hedged, a rising spot price
  * stops helping you — you already sold that volume at a fixed price. Forward
  * contracts quietly discipline generators into bidding competitively.
- */
+ **/
+ 
 export function settleWithContract(
   row: PlantDispatchDetails,
   contractMw: number,
@@ -334,6 +338,9 @@ export function settleWithContract(
     hedgeDifferenceFromSpotPerHour,
     spotRevenuePerHour,
     costPerHour,
+    spotExposureMw: produced - contractMw,
+    producedMw: produced,
+    contractedMw: contractMw,
   }
 }
 

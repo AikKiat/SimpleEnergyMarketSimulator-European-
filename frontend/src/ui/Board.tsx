@@ -31,6 +31,50 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'go
   )
 }
 
+/** One tick of the hedged-vs-unhedged race, recorded as the spot price walks. */
+export interface HedgeSample {
+  spot: number
+  hedged: number
+  unhedged: number
+}
+
+/** How many ticks of history the hedge chart keeps on screen. */
+export const HEDGE_HISTORY_POINTS = 80
+
+
+function HedgeChart({ history }: { history: HedgeSample[] }) {
+  if (history.length < 2) return null
+
+  const W = 260
+  const H = 74
+  const values = history.flatMap((p) => [p.hedged, p.unhedged])
+  const lo = Math.min(...values)
+  const hi = Math.max(...values)
+  const span = hi - lo || 1
+
+  const x = (i: number) => (i / (history.length - 1)) * W
+  const y = (v: number) => H - ((v - lo) / span) * H
+  const points = (pick: (p: HedgeSample) => number) =>
+    history.map((p, i) => `${x(i).toFixed(1)},${y(pick(p)).toFixed(1)}`).join(' ')
+
+  // Break-even matters more than any gridline: above it the hour earns, below it loses.
+  const zero = lo <= 0 && hi >= 0 ? y(0) : null
+
+  return (
+    <svg
+      className="hedge-chart"
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      role="img"
+      aria-label="Hedged and unhedged margin per hour over recent ticks, on a shared scale"
+    >
+      {zero != null && <line className="hedge-chart-zero" x1={0} x2={W} y1={zero} y2={zero} />}
+      <polyline className="hedge-chart-line unhedged" points={points((p) => p.unhedged)} />
+      <polyline className="hedge-chart-line hedged" points={points((p) => p.hedged)} />
+    </svg>
+  )
+}
+
 export function Board({
   rows,
   totals,
@@ -39,6 +83,7 @@ export function Board({
   marketClearing,
   demandMw,
   hedge,
+  hedgeHistory = [],
   liveIntensity,
   carbonPrice,
   carbon,
@@ -50,6 +95,7 @@ export function Board({
   marketClearing?: MarketClearingResult
   demandMw?: number
   hedge?: HedgeResult
+  hedgeHistory?: HedgeSample[]
   // Real gCO2/kWh from the Carbon Intensity API, when that feed is synced.
   liveIntensity?: { gramsPerKwh: number; index: string | null } | null
   // The simulated £/tonne from the slider - a different quantity entirely.
@@ -150,13 +196,52 @@ export function Board({
               {compactMoney(hedge.unhedgedPerHour)}/h
             </span>
           </div>
+          <div className="hedge-row">
+            <span>Contract settles</span>
+            <span className={hedge.hedgeDifferenceFromSpotPerHour >= 0 ? 'good' : 'bad'}>
+              {hedge.hedgeDifferenceFromSpotPerHour >= 0 ? '+' : '−'}
+              {compactMoney(Math.abs(hedge.hedgeDifferenceFromSpotPerHour))}/h
+            </span>
+          </div>
           <div className="hedge-row strong">
             <span>Hedged</span>
             <span className={hedge.hedgedPerHour >= 0 ? 'good' : 'bad'}>{compactMoney(hedge.hedgedPerHour)}/h</span>
           </div>
+
+          <HedgeChart history={hedgeHistory} />
+          <div className="hedge-legend">
+            <span className="hedge-key unhedged">Unhedged</span>
+            <span className="hedge-key hedged">Hedged</span>
+          </div>
+
+          <div className="hedge-row quiet">
+            <span>
+              Q_produced {r0(hedge.producedMw)} − Q_contracted {r0(hedge.contractedMw)}
+            </span>
+            <span className={hedge.spotExposureMw === 0 ? 'good' : ''}>{r0(hedge.spotExposureMw)} MW</span>
+          </div>
+
           <div className="hedge-note">
-            Fixed-price revenue is {compactMoney(hedge.fixedContractRevenuePerHour)}/h. The hedge differs from spot by{' '}
-            {compactMoney(hedge.hedgeDifferenceFromSpotPerHour)}/h.
+            Q_contracted × (P_fixed − P_spot) = {compactMoney(hedge.hedgeDifferenceFromSpotPerHour)}/h — the whole gap
+            between the two lines.
+            <br />
+            {hedge.spotExposureMw === 0 ? (
+              <>
+                Production exactly covers the contract, so <b>nothing</b> is left riding on spot - the hedged line is
+                flat whatever the price does. This is what a complete hedge looks like.
+              </>
+            ) : hedge.spotExposureMw > 0 ? (
+              <>
+                The unhedged line rides the <b>full</b> {r0(hedge.producedMw)} MW; the hedged line rides only the{' '}
+                <b>{r0(hedge.spotExposureMw)} MW</b> surplus not sold forward, so it moves less. Match the contract to
+                production and it flattens completely.
+              </>
+            ) : (
+              <>
+                Generating <b>{r0(hedge.producedMw)} MW</b> against a <b>{r0(hedge.contractedMw)} MW</b> obligation, so 
+                {r0(Math.abs(hedge.spotExposureMw))} MW must be bought back at spot every hour.
+              </>
+            )}
           </div>
         </div>
       )}
@@ -193,12 +278,6 @@ export function Board({
             </div>
           )
         })}
-
-        <div className="stack-legend">
-          <span className="marker-key" /> the vertical line is the{' '}
-          <b>{marketClearing ? 'clearing price' : 'power price'}</b>. Bars ending left of it are cheaper than the price, so
-          they run.
-        </div>
       </div>
     </div>
   )

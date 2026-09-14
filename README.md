@@ -12,45 +12,32 @@
 ![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white)
 ![Claude API](https://img.shields.io/badge/Claude_API-D97757?style=flat-square&logo=anthropic&logoColor=white)
 
-Just a Energy Market simulator I made, as an entrypoint into understanding the European Energy Market and how something as `seemingly` simple and ubiquitous such as energy, is actually a product of a long, painstaking and storied journey being made possible by various key drivers of our global infrastructure, and economy. It is my fist step to better understanding finance as a software engineer. Cheers.
+Just a Energy Market simulator I made, as an entrypoint into understanding the European Energy Market and how something as `seemingly` simple and ubiquitous such as energy, is actually a product of a long, painstaking and storied journey being made possible by various key drivers of our global infrastructure, and economy. It is my fist step to better understanding finance as a software engineer.
 
-
-
-
-An interactive, reflective learning tool that teaches how a wholesale electricity
-market actually works — from a single power plant's run/don't-run decision all the
-way up to negative prices — by letting you *drive the market yourself* with sliders
-and watch the consequences clear in real time.
-
-This started as a way for me to learn energy markets from zero. Rather than just
-reading about merit order and spark spreads, I built the market, wired each concept
-to a control I could move, and wrote up what I understood at each step. The result is
-part simulator, part learning journal: every lesson pairs a short reflection (in my
-own words, with sources) with a live model you can experiment on.
+Here is the link:
+https://simple-energy-market-simulator-euro-one.vercel.app/
 
 ---
 
 ## My Key Reflective Points (Split into chapters)
+---
 
-The lessons build on each other — each one adds a single new idea on top of the same
-underlying auction, in roughly this order:
-
-1. **Spark spread** — why a gas plant runs only when electricity is worth more than
+1. **Spark spread** - why a gas plant runs only when electricity is worth more than
    the gas (and carbon) needed to make it, and how that decision becomes a schedule.
-2. **Efficiency & economic viability** — why a more efficient plant survives a price
+2. **Efficiency & economic viability** - why a more efficient plant survives a price
    squeeze that shuts a less efficient one, and why zero-fuel renewables are the
    logical endpoint of that argument.
-3. **The merit order** — ranking plants cheapest-first to meet demand, and the
+3. **The merit order** - ranking plants cheapest-first to meet demand, and the
    Merit Order Effect: cheap renewables pushing conventional plants down the stack.
-4. **Marginal pricing & the day-ahead auction** — how a pay-as-clear auction sets a
+4. **Marginal pricing & the day-ahead auction** - how a pay-as-clear auction sets a
    single uniform clearing price (the marginal plant's offer) that everyone receives.
-5. **Market power & strategic bidding** — what happens when plants can bid *above*
+5. **Market power & strategic bidding** - what happens when plants can bid *above*
    cost, why withholding is tempting, and why it's regulated.
-6. **Hedging** — forwards, futures and Contracts for Difference: locking in a price
+6. **Hedging** - forwards, futures and Contracts for Difference: locking in a price
    to trade volatility for certainty, and how hedging quietly disciplines bidding.
-7. **Carbon pricing** — how the EU ETS re-sorts the merit order by making dirtier
+7. **Carbon pricing** - how the EU ETS re-sorts the merit order by making dirtier
    plants' costs climb faster, driving coal-to-gas switching.
-8. **Negative prices** — how per-MWh subsidies (and inflexibility) push the marginal
+8. **Negative prices** - how per-MWh subsidies (and inflexibility) push the marginal
    offer below zero, dragging the whole market price with it.
 
 ---
@@ -64,7 +51,7 @@ At the heart is a single clearing routine shared by every lesson:
 2. It turns that into an **offer** (optionally adjusted for subsidies or strategy).
 3. Offers are sorted cheapest-first and stacked until they meet demand
    (the **merit order**).
-4. The last plant needed — the **marginal plant** — sets the **uniform clearing
+4. The last plant needed - the **marginal plant** - sets the **uniform clearing
    price** paid to every plant that cleared.
 
 Each lesson exposes a few of these inputs as sliders (power price, gas price, carbon
@@ -76,15 +63,15 @@ cleared negative") and surface them as events.
 
 ## Features
 
-- **Interactive lessons** — move a slider, watch the merit order re-stack and the
+- **Interactive lessons** - move a slider, watch the merit order re-stack and the
   clearing price update instantly.
-- **Event detection** — the simulator flags meaningful moments as they happen
+- **Event detection** - the simulator flags meaningful moments as they happen
   (a plant dropping out, coal-to-gas switching, a negative clearing price) rather
   than front-loading explanation.
-- **Optional AI analyst** — on request, an assistant (Anthropic Claude API) explains
+- **Optional AI analyst** - on request, an assistant (Anthropic Claude API) explains
   *why* a detected event occurred, with structured output, prompt caching, graceful
   degradation when no API key is present, and session-scoped memory. (Disabled for now but fully implemented in the codebase. Plan to develop it further.)
-- **Realtime sync with actual data sources** — each feed can be toggled
+- **Realtime sync with actual data sources** - each feed can be toggled
   individually between live and simulated, and the panel states plainly which
   ones *can* be live and which cannot (see below).
 
@@ -103,19 +90,19 @@ simulated.
 | Generation mix | Carbon Intensity API | `api.carbonintensity.org.uk/generation` | Great Britain | Free, no key | **Live** |
 | Carbon intensity | Carbon Intensity API | `api.carbonintensity.org.uk/intensity` | Great Britain | Free, no key | **Live** |
 | Day-ahead / system power price | Elexon BMRS / ENTSO-E Transparency Platform | `bmrs.elexon.co.uk` / `transparency.entsoe.eu` | GB / EU bidding zones | Free, needs an API key | Not wired yet |
-| Fuel & carbon prices | Commercial market data (ICE, EEX and similar) | Subscription data terminals | NBP/TTF gas, API2 coal, EU ETS carbon | Paid | No free feed — simulated |
+| Fuel & carbon prices | Commercial market data (ICE, EEX and similar) | Subscription data terminals | NBP/TTF gas, API2 coal, EU ETS carbon | Paid | No free feed - simulated |
 
 Polled every 5 minutes; the upstream feed itself only updates every half hour, so
 polling harder just wastes calls.
 
-Two honest caveats worth stating:
+However, here are some caveats:
 
 - **Carbon intensity is display-only.** The live gCO₂/kWh reading is shown for
-  context, but the carbon *price* driving the merit order is still the slider —
-  there is no free feed for the EU ETS price.
+  context, but the carbon *price* driving the merit order is still the slider. I am still on the prowl for a free feed regarding EU/ETS prices.
+  
 - **Gas, coal and carbon prices have no free live source.** They are simulated in
   the frontend. The pipeline is wired for them regardless, so swapping in a real
-  feed later is a change in one place.
+  feed later can be done.
 
 ---
 
@@ -123,11 +110,11 @@ Two honest caveats worth stating:
 
 | Part | Where |
 |---|---|---|
-| Frontend | **Vercel** https://simple-energy-market-simulato-git-835623-millerman764s-projects.vercel.app/ |
-| Backend | AWS EC2 (`t3.small`) + Docker Compose, nginx behind Cloudflare |
+| Frontend | **Vercel** https://simple-energy-market-simulator-euro-one.vercel.app/ |
+| Backend | AWS EC2 (`t3.small`) + Docker Compose, nginx behind Cloudflare, using Strict(Full) |
 
-The frontend runs entirely standalone: the whole simulation — merit order,
-clearing price, hedging, cap-and-trade — is computed in the browser, so the live
+The frontend runs entirely standalone: the whole simulation - merit order,
+clearing price, hedging, cap-and-trade - is computed in the browser, so the live
 site is fully usable with the backend offline. The backend only adds the live GB
 feeds on top.
 
@@ -144,11 +131,11 @@ npm run dev            # http://localhost:5173
 **With the backend** (adds the live GB generation mix and carbon intensity):
 
 ```bash
-docker compose up -d   # Kafka (KRaft, no Zookeeper) + Postgres
+docker compose up -d   # Kafka (KRaft, no Zookeeper)
 ./mvnw spring-boot:run # http://localhost:8080
 ```
 
-Then in another terminal run the frontend as above — Vite proxies `/api` to
+Then in another terminal run the frontend as above - Vite proxies `/api` to
 `localhost:8080` in dev, so no configuration is needed.
 
 Postgres is only used by the AI analyst, which is currently disabled; the app
@@ -168,4 +155,4 @@ cd frontend && npm run build:spring   # builds, then copies into src/main/resour
   controls, and triggers as data)
 - **Simulation core:** a shared merit-order clearing engine
 - **Visualisation (in progress):** a graphical three.js front-end to show plants,
-  bidding, and the clearing price as a proper little game
+  bidding, and the clearing price.

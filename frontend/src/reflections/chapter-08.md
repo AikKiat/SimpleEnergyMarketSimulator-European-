@@ -1,6 +1,6 @@
 "In markets with high renewable penetration, situations increasingly arise in which electricity supply exceeds demand — and the market price falls below zero." (Montel, 2025) From my exploration, European **day-ahead** prices have now gone **negative** for hundreds of hours per year in Germany alone:
 
->"573 out of a total of 8,760 hours in 2025, compared with 457 out of 8,784 hours in 2024. Prices above €300/MWh were recorded in 40 out of 8,760 hours in 2025, compared with 41 out of 8,784 hours in 2024. (The total number of hours in the two years is different because 2024 was a leap year.)" (Bundesnetzagentur, 2026)
+> "573 out of a total of 8,760 hours in 2025, compared with 457 out of 8,784 hours in 2024. Prices above €300/MWh were recorded in 40 out of 8,760 hours in 2025, compared with 41 out of 8,784 hours in 2024. (The total number of hours in the two years is different because 2024 was a leap year.)" (Bundesnetzagentur, 2026)
 
 Being *paid to consume* is not a very conventional, intuitive idea. However, here are some explanations I found and the overall phenomenon is actually a clear sign of the unequivocal transition towards renewable energy sources. As we hearken back to the previous chapters and even the grounding of the power market - Futures, Day Ahead, intraday and even the market agents (**Balance Responsible Parties**) who seek to balance either their own portfolios, or the TSOs come in after the transactions to ensure market equilibrium; all of these can be traced back to the concept that electricity **cannot be stored**, or at least storing it is **very costly and expensive**.
 
@@ -8,9 +8,9 @@ Being *paid to consume* is not a very conventional, intuitive idea. However, her
 
 > "The drivers of negative electricity prices in the Netherlands can be grouped into three dimensions—**structural**, **institutional**, and **technical**....
 
->"Structural reasons (dominant): Rapid growth in installed PV has markedly increased variable renewable output...resulting in periodic supply surpluses."
+> "Structural reasons (dominant): Rapid growth in installed PV has markedly increased variable renewable output...resulting in periodic supply surpluses."
 
->"Institutional reasons: Market rules permit negative-prices bids, and certain design features incentivize such bidding. Accordingly renewable generators and conventional thermal generators have adopted the following distinct approaches."
+> "Institutional reasons: Market rules permit negative-prices bids, and certain design features incentivize such bidding. Accordingly renewable generators and conventional thermal generators have adopted the following distinct approaches."
 
 > "The Renewable Energy Grant Scheme (SDE+), introduced in 2016, provides a premium subsidy (initially €150/MWh), enabling renewable generators to remain profitable during brief intervals of negative prices...(since) European electricity markets are typically decentralized and often lack...cost compensation guarantees...for thermal units; (they) owing to technical and cost constraints, (face) intense market competition and extremely low prices - ...compelled to submit negative bids to secure dispatch and avoid incurring even higher costs associated with shutting down and restarting."
 
@@ -22,9 +22,9 @@ Overall, this situation is also made more profound due to the unprecedented natu
 
 > "Negative pricing tends to cluster at certain times of day and seasons because the same conditions repeat:
 
->"Wind surges: Strong wind systems crossing Poland, Czechia, Slovakia, Hungary and Romania can lift output steeply during night and early-morning hours when demand is low. Onshore fleets are growing fast, so the amplitude of these ramps increases year over year.
+> "Wind surges: Strong wind systems crossing Poland, Czechia, Slovakia, Hungary and Romania can lift output steeply during night and early-morning hours when demand is low. Onshore fleets are growing fast, so the amplitude of these ramps increases year over year.
 
->"Hydro and run-of-river flows: Alpine and Carpathian catchments can flood the system with hydro in spring snowmelt or during wet weeks. Operators may bid low (even negative) to prioritise reservoir management, avoid spillage, or meet environmental flow constraints."
+> "Hydro and run-of-river flows: Alpine and Carpathian catchments can flood the system with hydro in spring snowmelt or during wet weeks. Operators may bid low (even negative) to prioritise reservoir management, avoid spillage, or meet environmental flow constraints."
 
 (Montel, 2025)
 

@@ -85,16 +85,23 @@ price, wind availability, demand, strategic bid...etc.
 
 ### Backend Architecture
 
+![Backend architecture — container view](docs/architecture/backend-architecture.drawio.svg)
 
+The backend is deliberately small: a **poll → publish → project → serve**
+pipeline. Every five minutes a scheduled producer pulls the live GB generation
+mix and carbon intensity from NESO's Carbon Intensity API, validates the payload
+at the boundary, and publishes a `MarketData` event to a single-partition Kafka
+topic. A consumer projects the latest event into an in-memory read model, and
+`GET /api/market/live` serves that as a `MarketSnapshot`. Kafka sits between
+producer and consumer so an upstream outage never takes the endpoint down — it
+keeps serving the last good reading.
 
-
-
-
-
-
-
-
-
+The full walkthrough — C4 context and container views, the component-level
+streaming flow, the data contracts at each boundary, and the Kafka design
+decisions (why one partition, why a compacted topic is the natural next step) —
+is in [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md).
+The diagram above is a `.drawio.svg`: it renders as a normal image here and
+opens directly in [diagrams.net](https://app.diagrams.net) for editing.
 
 ## External data sources
 

@@ -9,7 +9,7 @@
  * simulation are real measurements and which are my own assumptions.
  */
 
-import { FEED_CATALOGUE, type FeedStatus, type LiveMarket } from '../market'
+import { FEED_CATALOGUE,type FeedStatus, type LiveMarket } from '../market'
 
 const STATUS_LABEL: Record<FeedStatus, string> = {
   AVAILABLE: 'Available',
@@ -43,7 +43,7 @@ export function SyncPanel({ live }: { live: LiveMarket }) {
             </div>
 
             <div className="sync-meta">
-              {feed?.source} · {feed?.cost} · drives {drives}
+              {feed?.source} {`->`} {feed?.access} · drives {drives}
             </div>
             {feed?.endpoint && (
               <div className="sync-origin">

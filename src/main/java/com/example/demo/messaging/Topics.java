@@ -4,7 +4,7 @@ package com.example.demo.messaging;
 public final class Topics {
 
     //Live GB market data (generation mix + carbon intensity) from the ETL.
-    public static final String MARKET_DATA = "market.data";
+    public static final String MARKET_DATA = "market.data.genmix.carbonint";
 
     //For the backend AI analyst
     public static final String INSIGHT_REQUESTS = "insight.requests";

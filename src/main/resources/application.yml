@@ -42,8 +42,7 @@ app:
   ingestion:
     carbon-intensity:
       base-url: https://api.carbonintensity.org.uk
-      # The upstream feed updates every half hour; polling faster just wastes calls.
-      poll-interval-ms: 300000
+      poll-interval-ms: 300000 #poll every 300000ms = 300 seconds = every 5 minute. Referenced in MarketDataPoller class
 
   # Origins allowed to call /api/**. Add the Vercel URL here once deployed.
   cors:

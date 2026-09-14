@@ -1,16 +1,17 @@
 package com.example.demo.market;
 
-import com.example.demo.ingestion.model.FuelShare;
-import com.example.demo.ingestion.model.MarketData;
-import com.example.demo.messaging.Topics;
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import com.example.demo.ingestion.model.FuelShare;
+import com.example.demo.ingestion.model.MarketData;
+import com.example.demo.messaging.Topics;
 
 /**
  * The LOAD end of the ETL, and the read model behind {@code /api/market/live}.
@@ -29,8 +30,6 @@ public class MarketProjector {
     private static final String CARBON_GENERATION = "api.carbonintensity.org.uk/generation";
     private static final String CARBON_INTENSITY = "api.carbonintensity.org.uk/intensity";
     private static final String GB = "Great Britain";
-    private static final String FREE = "Free, no key";
-
     private volatile MarketData latest;
 
 
@@ -52,41 +51,51 @@ public class MarketProjector {
                 shares.put(share.fuel(), share.perc() / 100.0);
             }
             feeds.put("generationMix", FeedView.available(
-                    CARBON_API, CARBON_GENERATION, GB, FREE, shares));
+                    CARBON_API, CARBON_GENERATION, GB, FeedAccess.FREE_NO_KEY.getLabel(), new FeedData.GenerationMix(shares)));
         } else {
             feeds.put("generationMix", FeedView.notWired(
-                    CARBON_API, CARBON_GENERATION, GB, FREE,
+                    CARBON_API, CARBON_GENERATION, GB, FeedAccess.FREE_NO_KEY.getLabel(),
                     "No reading yet — the first poll has not completed."));
         }
 
         //Carbon intensity
         if (data != null && data.carbonIntensityGramsPerKwh() != null) {
-            Map<String, Object> intensity = new LinkedHashMap<>();
-            intensity.put("gramsPerKwh", data.carbonIntensityGramsPerKwh());
-            intensity.put("index", data.carbonIntensityIndex());
             feeds.put("carbonIntensity", FeedView.available(
-                    CARBON_API, CARBON_INTENSITY, GB, FREE, intensity));
+                    CARBON_API,
+                    CARBON_INTENSITY,
+                    GB,
+                    FeedAccess.FREE_NO_KEY.getLabel(),
+                    new FeedData.CarbonIntensity(data.carbonIntensityGramsPerKwh(), data.carbonIntensityIndex())));
         } else {
             feeds.put("carbonIntensity", FeedView.notWired(
-                    CARBON_API, CARBON_INTENSITY, GB, FREE,
+                    CARBON_API, CARBON_INTENSITY, GB, FeedAccess.FREE_NO_KEY.getLabel(),
                     "No reading yet — the first poll has not completed."));
         }
 
+
+        //each of these FeedView.() methods return a new FeedView object. Builder design pattern
+
+
+        //Put the rest of the external API endpoints not being able to be wired up yet 
+        // --> like the EU ETS carbon tax data as well as Elexon Day Ahead prices.
+        
+        
         //Day-ahead / system power price (API key needed. Need to register but have to wait for now)
-        feeds.put("powerPrice", FeedView.notWired(
+        feeds.put("powerPrice", FeedView.notWired( 
                 "Elexon BMRS / ENTSO-E Transparency Platform",
                 "bmrs.elexon.co.uk / transparency.entsoe.eu",
                 "Great Britain / EU bidding zones",
-                "Free, needs an API key",
-                "Not integrated yet. Register for a key to enable this feed."));
+                FeedAccess.FREE_API_KEY_REQUIRED.getLabel(),
+                "Not integrated yet. Register for a key to enable this feed.")); //these messages are sent back upstream, displayed on the frontend!!!
+
 
         //Fuel and carbon PRICES (THis one is paid, so probably have to simulate in frontend first but at least we've wired it up in the pipeline)
         feeds.put("fuelPrices", FeedView.unavailable(
                 "Commercial market data (ICE, EEX and similar)",
                 "Subscription data terminals",
                 "NBP/TTF gas, API2 coal, EU ETS carbon",
-                "Paid",
-                "Gas, coal and EU ETS prices have no free live feed — simulated via the sliders."));
+                FeedAccess.PAID.getLabel(),
+                "Gas, coal and EU ETS prices have no free live feed - simulated via the sliders."));
 
         return new MarketSnapshot(
                 Instant.now(),

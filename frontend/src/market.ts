@@ -19,7 +19,7 @@ export interface FeedView {
   source: string
   endpoint: string
   region: string
-  cost: string
+  access: string
   note: string | null
   data: unknown
 }
@@ -42,7 +42,7 @@ const OFFLINE_FEED: FeedView = {
   source: 'Spring backend',
   endpoint: '/api/market/live',
   region: '—',
-  cost: '—',
+  access: 'UNKNOWN',
   note: 'Backend unreachable. Everything is running on the in-browser simulation.',
   data: null,
 }
@@ -79,6 +79,10 @@ export type GenerationShares = Record<string, number>
 export interface CarbonIntensityReading {
   gramsPerKwh: number
   index: string | null
+}
+
+interface GenerationMixFeedData {
+  shares: GenerationShares
 }
 
 export interface LiveMarket {
@@ -136,7 +140,7 @@ export function useLiveMarket(): LiveMarket {
 
   const liveShares = useMemo(() => {
     if (!isLive('generationMix')) return null
-    return (snapshot.feeds.generationMix.data as GenerationShares) ?? null
+    return (snapshot.feeds.generationMix.data as GenerationMixFeedData | null)?.shares ?? null
   }, [isLive, snapshot])
 
   const liveIntensity = useMemo(() => {

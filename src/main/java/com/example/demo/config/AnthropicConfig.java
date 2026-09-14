@@ -1,11 +1,11 @@
 package com.example.demo.config;
 
+import com.anthropic.client.okhttp.AnthropicOkHttpClient;
+import com.example.demo.insight.AnthropicClientHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
-
-import com.anthropic.client.okhttp.AnthropicOkHttpClient;
-import com.example.demo.insight.AnthropicClientHolder;
+import org.springframework.context.annotation.Configuration;
 
 /**
  * Builds the Anthropic client if — and only if — a key is present.
@@ -22,11 +22,11 @@ public class AnthropicConfig {
     AnthropicClientHolder anthropicClientHolder() {
         String key = System.getenv("ANTHROPIC_API_KEY");
         if (key == null || key.isBlank()) {
-            log.warn("ANTHROPIC_API_KEY not set - the market analyst is disabled. "
+            log.warn("ANTHROPIC_API_KEY not set — the market analyst is disabled. "
                     + "Everything else runs normally.");
             return new AnthropicClientHolder(null);
         }
-        log.info("Anthropic client configured - market analyst enabled");
+        log.info("Anthropic client configured — market analyst enabled");
         return new AnthropicClientHolder(AnthropicOkHttpClient.fromEnv());
     }
 }

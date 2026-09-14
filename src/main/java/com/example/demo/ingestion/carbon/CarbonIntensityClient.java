@@ -1,20 +1,19 @@
 package com.example.demo.ingestion.carbon;
 
-import java.util.Comparator;
-import java.util.List;
-
+import com.example.demo.ingestion.model.FuelShare;
+import com.example.demo.ingestion.model.MarketData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-import com.example.demo.ingestion.model.FuelShare;
-import com.example.demo.ingestion.model.MarketData;
+import java.util.Comparator;
+import java.util.List;
 
-/*
-  Fetches live GB market data from the Carbon Intensity API and maps it into our
-  domain model. Two endpoints, two different JSON shapes.
- 
+/**
+ * Fetches live GB market data from the Carbon Intensity API and maps it into our
+ * domain model. Two endpoints, two different JSON shapes.
+ *
  */
 @Component
 public class CarbonIntensityClient {

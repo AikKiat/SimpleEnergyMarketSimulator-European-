@@ -1,6 +1,6 @@
 spring:
   application:
-    name: Energy-Market-Simulator-Euro
+    name: dispatch-signal
 
   # AI analyst disabled, so there is no Postgres to connect to for now
   autoconfigure:

@@ -32,7 +32,7 @@ export interface MarketSnapshot {
 
 export const FEED_CATALOGUE: { id: FeedId; label: string; drives: string }[] = [
   { id: 'generationMix', label: 'Generation mix', drives: 'wind & solar availability' },
-  { id: 'carbonIntensity', label: 'Carbon intensity', drives: 'live gCO2/kWh readout' },
+  { id: 'carbonIntensity', label: 'Carbon intensity', drives: 'live gCO₂/kWh readout' },
   { id: 'powerPrice', label: 'Day-ahead power price', drives: 'the power price' },
   { id: 'fuelPrices', label: 'Fuel & carbon prices', drives: 'gas, coal and carbon price' },
 ]

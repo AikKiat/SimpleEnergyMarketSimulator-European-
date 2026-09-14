@@ -445,7 +445,7 @@ export default function App() {
               <span className="live-source">
                 {live.activeSources.join(' · ')}
                 {formatSettlement(live.snapshot.settlement)
-                  ? ` - settlement ${formatSettlement(live.snapshot.settlement)}`
+                  ? ` — settlement ${formatSettlement(live.snapshot.settlement)}`
                   : ''}
               </span>
             </span>

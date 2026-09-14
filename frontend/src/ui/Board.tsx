@@ -127,7 +127,7 @@ export function Board({
               ? 'Emissions are already under the cap, so permits are in surplus and the price is zero.'
               : carbon.infeasible
                 ? 'No price is high enough to bring this fleet under the cap.'
-                : 'The price is whatever forces emissions down to the cap — an output, not a setting.'}
+                : 'The price is whatever forces emissions down to the cap - an output, not a setting.'}
           </div>
         </div>
       )}
@@ -140,7 +140,7 @@ export function Board({
           </div>
           {liveIntensity.index && <div className="intensity-index">{liveIntensity.index}</div>}
           <div className="intensity-note">
-            Measured from real GB generation right now. This is an <b>intensity</b>, not a price
+            Measured from real GB generation. Carbon intensity
             {carbonPrice != null && (
               <> — the carbon <b>price</b> driving marginal costs is still simulated at {money(carbonPrice)}/tonne</>
             )}

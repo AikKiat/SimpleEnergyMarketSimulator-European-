@@ -9,14 +9,13 @@ export type EventType =
   | 'PLANT_STOPPED'
   | 'MARGINAL_PLANT_CHANGED'
   | 'MERIT_ORDER_REORDERED'
-  | 'PRICE_SPIKE'
-  | 'PRICE_COLLAPSE'
+  | 'PRICE_CHANGED'
   | 'NEGATIVE_PRICE'
   | 'UNSERVED_DEMAND'
   | 'BID_REJECTED'
   | 'CAPACITY_EXHAUSTED'
   | 'RENEWABLE_SURPLUS'
-  | 'HEDGE_DIVERGENCE'
+  | 'HEDGE_VS_SPOT'
   | 'REFLECTION_NOTE'
 
 export interface MarketEvent {
@@ -115,8 +114,8 @@ export function detectEvents(prev: Snapshot | null, next: Snapshot): MarketEvent
         make(
           started ? 'PLANT_STARTED' : 'PLANT_STOPPED',
           'info',
-          `${row.plant.name} ${started ? 'came online' : 'went offline'}`,
-          `Spread ${money(row.spread)}/MWh · cost ${money(row.marginalCost)} vs price ${money(row.powerPrice)}`,
+          `${row.plant.name} ${started ? 'entered' : 'left'} dispatch`,
+          `Price ${money(row.powerPrice)}/MWh; marginal cost ${money(row.marginalCost)}/MWh; margin ${money(row.spread)}/MWh`,
           `plant:${row.plant.id}`,
           {
             plant: row.plant.name,
@@ -135,8 +134,8 @@ export function detectEvents(prev: Snapshot | null, next: Snapshot): MarketEvent
         make(
           'BID_REJECTED',
           'warn',
-          `${row.plant.name} was priced out`,
-          `Offered ${money(row.offer)} against a cost of ${money(row.marginalCost)} — cleared nothing`,
+          `${row.plant.name}'s offer did not clear`,
+          `Offer ${money(row.offer)}/MWh; marginal cost ${money(row.marginalCost)}/MWh.`,
           `plant:${row.plant.id}`,
           { plant: row.plant.name, offer: r2(row.offer), marginalCost: r2(row.marginalCost) },
         ),
@@ -153,7 +152,7 @@ export function detectEvents(prev: Snapshot | null, next: Snapshot): MarketEvent
       make(
         'MARGINAL_PLANT_CHANGED',
         'info',
-        `${plant?.name ?? nextMarginal} now sets the price`,
+        `${plant?.name ?? nextMarginal} set the clearing price`,
         `Clearing price ${money(next.price)}/MWh at ${r0(next.demandMw)} MW demand`,
         `plant:${nextMarginal}`,
         { from: prevMarginal, to: nextMarginal, clearingPrice: r2(next.price), demandMw: r0(next.demandMw) },
@@ -171,8 +170,8 @@ export function detectEvents(prev: Snapshot | null, next: Snapshot): MarketEvent
         make(
           'MERIT_ORDER_REORDERED',
           'info',
-          `Merit order changed: ${moved[0]} ↔ ${moved[1]}`,
-          `Carbon ${money(next.market.carbonPrice)}/t · gas ${money(next.market.gasPrice)}/MWh`,
+          `Merit order changed: ${moved[0]} and ${moved[1]} moved`,
+          `Carbon price ${money(next.market.carbonPrice)}/t; gas price ${money(next.market.gasPrice)}/MWh`,
           'board',
           { newOrder: next.rows.map((r) => r.plant.name), carbonPrice: next.market.carbonPrice, gasPrice: next.market.gasPrice },
         ),
@@ -187,10 +186,10 @@ export function detectEvents(prev: Snapshot | null, next: Snapshot): MarketEvent
     const up = delta > 0
     out.push(
       make(
-        up ? 'PRICE_SPIKE' : 'PRICE_COLLAPSE',
+        'PRICE_CHANGED',
         'warn',
-        `Price ${up ? 'spiked' : 'collapsed'} to ${money(next.price)}/MWh`,
-        `Moved ${money(delta)} in one tick from ${money(prev.price)}`,
+        `Price ${up ? 'rose' : 'fell'} to ${money(next.price)}/MWh`,
+        `Change ${money(delta)}/MWh from ${money(prev.price)}/MWh`,
         'board',
         { from: r2(prev.price), to: r2(next.price), delta: r2(delta) },
       ),
@@ -202,8 +201,8 @@ export function detectEvents(prev: Snapshot | null, next: Snapshot): MarketEvent
       make(
         'NEGATIVE_PRICE',
         'critical',
-        `Clearing price went negative: ${money(next.price)}/MWh`,
-        `Generators are now paying to supply · demand ${r0(next.demandMw)} MW`,
+        `Clearing price is negative: ${money(next.price)}/MWh`,
+        `Demand ${r0(next.demandMw)} MW`,
         'board',
         { clearingPrice: r2(next.price), demandMw: r0(next.demandMw) },
       ),
@@ -217,8 +216,8 @@ export function detectEvents(prev: Snapshot | null, next: Snapshot): MarketEvent
       make(
         'UNSERVED_DEMAND',
         'critical',
-        `${r0(unserved)} MW of demand cannot be served`,
-        `Every plant is dispatched — total capacity exhausted`,
+        `Unserved demand: ${r0(unserved)} MW`,
+        `Demand ${r0(next.demandMw)} MW; dispatched output ${r0(next.totals.totalMw)} MW`,
         'board',
         { unservedMw: r0(unserved), demandMw: r0(next.demandMw) },
       ),
@@ -231,8 +230,8 @@ export function detectEvents(prev: Snapshot | null, next: Snapshot): MarketEvent
       make(
         'CAPACITY_EXHAUSTED',
         'warn',
-        'Entire fleet is dispatched',
-        `${r0(next.totals.totalMw)} MW online — no spare capacity left`,
+        'All simulated plants are dispatched',
+        `Simulated fleet output ${r0(next.totals.totalMw)} MW`,
         'board',
         { totalMw: r0(next.totals.totalMw), plants: next.totals.plantCount },
       ),
@@ -249,8 +248,8 @@ export function detectEvents(prev: Snapshot | null, next: Snapshot): MarketEvent
       make(
         'RENEWABLE_SURPLUS',
         'info',
-        'Only zero-fuel generation is running',
-        `Price ${money(next.price)}/MWh — nothing burning fuel is needed`,
+        'Running plants have near-zero marginal cost',
+        `Price ${money(next.price)}/MWh; ${next.totals.runningCount} plants running`,
         'board',
         { clearingPrice: r2(next.price), runningPlants: next.totals.runningCount },
       ),
@@ -264,10 +263,10 @@ export function detectEvents(prev: Snapshot | null, next: Snapshot): MarketEvent
     if (Math.abs(gap) > 20000 && Math.sign(gap) !== Math.sign(prevGap)) {
       out.push(
         make(
-          'HEDGE_DIVERGENCE',
+          'HEDGE_VS_SPOT',
           'info',
-          gap > 0 ? 'The hedge is now paying off' : 'The hedge is now costing you',
-          `Hedged ${money(next.hedge.hedgedPerHour)}/h vs unhedged ${money(next.hedge.unhedgedPerHour)}/h`,
+          `Hedged margin is ${money(Math.abs(gap))}/h ${gap > 0 ? 'above' : 'below'} unhedged`,
+          `Spot ${money(next.price)}/MWh; hedged ${money(next.hedge.hedgedPerHour)}/h; unhedged ${money(next.hedge.unhedgedPerHour)}/h`,
           'board',
           {
             hedgedPerHour: r2(next.hedge.hedgedPerHour),

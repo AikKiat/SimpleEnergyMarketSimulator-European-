@@ -61,7 +61,7 @@ export async function explain(event: MarketEvent, snapshot: Snapshot, signal?: A
     throw new Error(
       e instanceof Error && e.name === 'AbortError'
         ? "[ANALYST] Cancelled"
-        : "[ANALYST] Analyst unavailable — is the Spring backend running, or has the API key been set?",
+        : "[ANALYST] Analyst unavailable - is the Spring backend running, or has the API key been set?",
     )
   }
 

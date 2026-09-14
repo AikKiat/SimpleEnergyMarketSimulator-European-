@@ -140,7 +140,7 @@ export function Board({
           </div>
           {liveIntensity.index && <div className="intensity-index">{liveIntensity.index}</div>}
           <div className="intensity-note">
-            Measured from real GB generation right now. This is an <b>intensity</b>, not a price
+            Measured from real GB generation right now. Carbon intensity from Carbon Intensity API.
             {carbonPrice != null && (
               <> — the carbon <b>price</b> driving marginal costs is still simulated at {money(carbonPrice)}/tonne</>
             )}

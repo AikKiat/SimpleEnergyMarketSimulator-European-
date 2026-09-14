@@ -103,12 +103,10 @@ export function availableMw(plant: Plant): number {
 }
 
 /**
- * The price a plant OFFERS into the auction.
+ * The price a plant offers into auction.
  *
- * Honest bidding means offering on the true marginal cost — below that will lose money
- * on every MWh. Subsidies shift the floor down (you can afford to be paid less
- * than cost, because the subsidy covers --> also the mechanism behind
- * negative prices.
+ * Without an output-linked subsidy, honest bidding means offering at marginal cost.
+ * A subsidy shifts the break-even offer down because it is earned on every MWh generated.
  */
 export function offerPrice(plant: Plant, market: Market, bidsById: Record<string, number> = {}): number {
   const explicit = bidsById[plant.id]
@@ -122,7 +120,7 @@ export function dispatchAtPrice(plants: Plant[], powerPrice: number, market: Mar
   return plants
     .map<DispatchRow>((plant) => {
       const cost = marginalCost(plant, market)
-      const spread = powerPrice - cost
+      const spread = powerPrice + (plant.subsidyPerMwh ?? 0) - cost
       const running = spread > 0
       const mw = running ? availableMw(plant) : 0
       return {
@@ -147,7 +145,7 @@ export interface AuctionResult {
 }
 
 
-//Auction
+//Auction time
 export function clearAuction(
   plants: Plant[],
   demandMw: number,
@@ -168,9 +166,10 @@ export function clearAuction(
   let marginalPlantId: string | null = null
 
   const taken = offers.map((o) => {
-    const mwRemaining = Math.max(0, Math.min(o.capacity, remaining))
+    const mwRemaining = Math.max(0, Math.min(o.capacity, remaining)) //clamp to 0. Cannot be negative!
     remaining -= mwRemaining
     if (mwRemaining > 0) {
+
       // Each plant we take pushes the price up to its offer, so eventually the clearing price is the ask price of the marginal plant. 
       // update the marginal plant as long as mwRemaining (from demand) > 0
       marketClearingPrice = o.offer
@@ -179,18 +178,23 @@ export function clearAuction(
     return { ...o, mwRemaining, running: mwRemaining > 0 }
   })
 
-  // Pay-as-cleared --> the 
-  const rows: DispatchRow[] = taken.map((t) => ({
-    plant: t.plant,
-    marginalCost: t.marginalCost,
-    offer: t.offer,
-    powerPrice: marketClearingPrice, //this is the final market clearing price
-    spread: marketClearingPrice - t.marginalCost,
-    running: t.running,
-    mw: t.mwRemaining,
-    profitPerHour: t.running ? (marketClearingPrice - t.marginalCost) * t.mwRemaining : 0,
-    isMarginal: t.plant.id === marginalPlantId,
-  }))
+  
+
+
+  const rows: DispatchRow[] = taken.map((t) => {
+    const spread = marketClearingPrice + (t.plant.subsidyPerMwh ?? 0) - t.marginalCost
+    return {
+      plant: t.plant,
+      marginalCost: t.marginalCost,
+      offer: t.offer,
+      powerPrice: marketClearingPrice, //this is the final market clearing price
+      spread,
+      running: t.running,
+      mw: t.mwRemaining,
+      profitPerHour: t.running ? spread * t.mwRemaining : 0,
+      isMarginal: t.plant.id === marginalPlantId,
+    }
+  })
 
   return { rows, marketClearingPrice, marginalPlantId, servedMw: demandMw - Math.max(0, remaining), unservedMw: Math.max(0, remaining) }
 }
@@ -208,19 +212,19 @@ export function totals(rows: DispatchRow[]): Totals {
 
 
 //Cap and Trade
-// Function that calculates the total overall Tonnes of CO2 potentially produced, from all running plants
+//Function that calculates the total overall Tonnes of CO2 potentially produced, from all running plants
 export function emissionsTonnesPerHour(rows: DispatchRow[]): number {
   return rows.filter((r) => r.running).reduce((sum, r) => sum + r.mw * r.plant.co2PerMwh, 0)
 }
 
 export interface CarbonMarketResult {
-  /** The permit price the market settles at, euro/tonne. */
+  // The permit price the market settles at, euro/tonne.
   carbonPrice: number
   emissions: number
   cap: number
-  /** False when emissions are already under the cap at 0 euro — surplus allowances. */
+  // False when emissions are already under the cap at 0 euro — surplus allowances.
   binding: boolean
-  /** True when even the maximum price cannot get emissions under the cap. */
+  // True when even the maximum price cannot get emissions under the cap.
   infeasible: boolean
 }
 

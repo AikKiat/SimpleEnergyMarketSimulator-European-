@@ -1,9 +1,10 @@
 
-Over here, in my toy simulator learning tool, it is really challenging to actually model a Day Ahead market and show all of the entities involved within the SDAC, EUPHEMIA as the algorithm, etc...
+In a toy learning simulator like this, it would be extremely challenging to reproduce the full European Day-Ahead market, involving the Single Day-Ahead Coupling (SDAC), multiple bidding zones, market participants, cross-border transmission constraints, and the EUPHEMIA market-coupling algorithm.
 
 Instead, right here I wanted to focus on the core concepts of the auctioning process behind the Day Ahead, specifically on the pay-as-clear auction (alternative is pay-as-bid), and in this Pay-As-Clear market auction we show how for a given singular value of electricity demanded, how the Merit Order is obtained and how the market clearing price is set.
 
-Following from the previous chapter, **merit orders** determined the order in which bids are accepted (ascending order of supply bid offers) until the demand is satiated. At this point, the last offer accepted becomes the **market clearing price**, and it is applied to all buyers and suppliers. These happen in the **Day-Ahead market**, therefore securing certainty of energy production stores for all participants through the settled contracts.
+Following from the previous chapter, **merit orders** determine the order in which bids are accepted (ascending order of supply bid offers) until the demand is satiated. At this point, the last offer accepted becomes the **market clearing price**, and it is applied to all buyers and suppliers. These happen in the **Day-Ahead market**, therefore securing certainty of energy production stores for all participants through the settled contracts.
+
 
 The marginal cost plays a big role in influencing the offers placed by the energy producing companies, as ultimately in the end the profits obtained are:
 

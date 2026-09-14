@@ -13,7 +13,7 @@ The central idea behind both instruments is hedging. Instead of leaving the futu
 
 > "A PPA is a contractual agreement between a power producer and a power purchaser...longer compared to standard contracts, (to be around) 10, 15, or even 20 years. It outlines the terms and conditions for selling and purchasing electricity. PPAs are used in the energy industry, particularly in renewable energy projects."
 >
-> — [Flexidao](https://www.flexidao.com/resources/how-to-choose-a-ppa-physical-vs-virtual-ppas)
+> - [Flexidao](https://www.flexidao.com/resources/how-to-choose-a-ppa-physical-vs-virtual-ppas)
 
 RWE defines a PPA as a long-term agreement for purchasing or selling renewable electricity which can provide more predictable pricing and financial stability (RWE, n.d.).
 
@@ -94,10 +94,10 @@ This leads to:
 
 ```
 Net Returns = Q_produced × P_spot − cost
-                + Q_contracted × P_fixed − Q_contracted × P_spot
+                + Q_contracted × P_fixed - Q_contracted × P_spot
 
             = (Q_produced − Q_contracted) × P_spot
-                + Q_contracted × P_fixed − cost
+                + Q_contracted × P_fixed - cost
 ```
 
 ---

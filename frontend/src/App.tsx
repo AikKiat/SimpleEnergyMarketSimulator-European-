@@ -23,7 +23,7 @@ import {
   settleWithContract,
   totals as computeTotals,
   type CarbonMarketResult,
-  type Market,
+  type MarketPriceCategories,
   type Plant,
 } from './sim'
 
@@ -40,7 +40,7 @@ export default function App() {
 
   const [readerView, setReaderView] = useState<ReaderView>("full")  //start off maxed out. Want to present my learning which is important.
  
-  const [market, setMarket] = useState<Market>(defaultMarket) //Here we set the default Market Object, which is basically an object containing the default prices for each fuel type -> carbon, gas, coal, nuclear
+  const [market, setMarket] = useState<MarketPriceCategories>(defaultMarket) //Here we set the default Market Object, which is basically an object containing the default prices for each fuel type -> carbon, gas, coal, nuclear
   const [powerPrice, setPowerPrice] = useState(reflection.initialPrice ?? reflection.walkForward?.base ?? 75)
   const [demand, setDemand] = useState(reflection.demand?.initial ?? 1000)
   const [bids, setBids] = useState<Record<string, number>>({})
@@ -91,7 +91,7 @@ export default function App() {
     return clearCarbonMarket(cap, (carbonPrice) => {
       const trial = { ...market, carbonPrice }
       return reflection.mode === 'auction'
-        ? clearAuction(plants, demand, trial, bids).rows
+        ? clearAuction(plants, demand, trial, bids).plantDispatchDetails
         : dispatchAtPrice(plants, powerPrice, trial)
     })
   }, [reflection.carbonMarket, reflection.mode, carbonMode, cap, market, plants, demand, bids, powerPrice])
@@ -100,7 +100,7 @@ export default function App() {
 
 
 
-  const effectiveMarket: Market = useMemo(
+  const effectiveMarket: MarketPriceCategories = useMemo(
     () => (carbonResult ? { ...market, carbonPrice: carbonResult.carbonPrice } : market),
     [market, carbonResult],
   )
@@ -109,12 +109,12 @@ export default function App() {
 
 
 
-  const { rows, price, auction } = useMemo(() => {
+  const { rows, marketPrice, marketClearing } = useMemo(() => {
     if (reflection.mode === 'auction') {
       const result = clearAuction(plants, demand, effectiveMarket, bids)
-      return { rows: result.rows, price: result.marketClearingPrice, auction: result }
+      return { rows: result.plantDispatchDetails, marketPrice: result.clearingPrice, marketClearing: result }
     }
-    return { rows: dispatchAtPrice(plants, powerPrice, effectiveMarket), price: powerPrice, auction: undefined }
+    return { rows: dispatchAtPrice(plants, powerPrice, effectiveMarket), marketPrice: powerPrice, marketClearing: undefined }
   }, [reflection.mode, plants, demand, effectiveMarket, bids, powerPrice])
 
 
@@ -134,8 +134,17 @@ export default function App() {
 
 
   const snapshot: Snapshot = useMemo(
-    () => ({ rows, totals, price, demandMw: demand, market, auction, hedge, reflectionId }),
-    [rows, totals, price, demand, market, auction, hedge, reflectionId],
+    () => ({
+      plantDispatchDetails: rows,
+      fleetTotals: totals,
+      marketPrice,
+      demandMw: demand,
+      marketPriceCategories: market,
+      marketClearing,
+      hedge,
+      reflectionId,
+    }),
+    [rows, totals, marketPrice, demand, market, marketClearing, hedge, reflectionId],
   )
 
 
@@ -233,7 +242,7 @@ export default function App() {
     const detected = detectEvents(prevSnapshot.current, snapshot)
     prevSnapshot.current = snapshot
 
-    const state: ReflectionState = { rows, totals, powerPrice: price, market, demandMw: demand, auction, hedge }
+    const state: ReflectionState = { rows, totals, marketPrice, market, demandMw: demand, marketClearing, hedge }
     const authored: MarketEvent[] = []
     for (const trigger of reflection.triggers) {
       let condition = false
@@ -251,7 +260,7 @@ export default function App() {
     }
 
     push([...detected, ...authored])
-  }, [snapshot, rows, totals, price, market, demand, auction, hedge, reflection, push])
+  }, [snapshot, rows, totals, marketPrice, market, demand, marketClearing, hedge, reflection, push])
 
   //SLider controls here
   const valueOf = useCallback(
@@ -284,7 +293,7 @@ export default function App() {
           // However, market.carbonPrice still holds whatever was last set dragged before switching.
           // So we show the computed permit price instead
           if (c.key === 'carbonPrice' && carbonResult) return carbonResult.carbonPrice
-          return market[c.key as keyof Market]
+          return market[c.key as keyof MarketPriceCategories]
       }
     },
     [powerPrice, demand, contractMw, contractPrice, availability, bids, market, reflection, live.liveShares, carbonResult],
@@ -465,9 +474,9 @@ export default function App() {
         <Board
           rows={rows}
           totals={totals}
-          powerPrice={price}
+          powerPrice={marketPrice}
           profitAndLoss={profitAndLoss}
-          auction={auction}
+          marketClearing={marketClearing}
           demandMw={reflection.mode === 'auction' ? demand : undefined}
           hedge={hedge}
           liveIntensity={live.liveIntensity}

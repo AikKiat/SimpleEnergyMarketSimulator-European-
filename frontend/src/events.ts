@@ -1,6 +1,15 @@
 
 
-import { FUELS, r0, r2, type AuctionResult, type DispatchRow, type HedgeResult, type Market, type Totals } from './sim'
+import {
+  FUELS,
+  r0,
+  r2,
+  type MarketClearingResult,
+  type HedgeResult,
+  type MarketPriceCategories,
+  type PlantDispatchDetails,
+  type EntireFleetTotal,
+} from './sim'
 
 export type Severity = 'info' | 'warn' | 'critical'
 
@@ -31,12 +40,12 @@ export interface MarketEvent {
 }
 
 export interface Snapshot {
-  rows: DispatchRow[]
-  totals: Totals
-  price: number
+  plantDispatchDetails: PlantDispatchDetails[]
+  fleetTotals: EntireFleetTotal
+  marketPrice: number
   demandMw: number
-  market: Market
-  auction?: AuctionResult
+  marketPriceCategories: MarketPriceCategories
+  marketClearing?: MarketClearingResult
   hedge?: HedgeResult
   reflectionId: number
 }
@@ -67,7 +76,7 @@ export function reflectionNote(
     type: 'REFLECTION_NOTE',
     severity: 'info',
     headline: title,
-    detail: `Price ${money(snapshot.price)}/MWh · ${snapshot.totals.runningCount}/${snapshot.totals.plantCount} online`,
+    detail: `Price ${money(snapshot.marketPrice)}/MWh · ${snapshot.fleetTotals.runningCount}/${snapshot.fleetTotals.plantCount} online`,
     anchor,
     at: Date.now(),
     payload: { triggerId, reflectionId: snapshot.reflectionId },
@@ -78,12 +87,16 @@ export function reflectionNote(
 export function describeFleet(s: Snapshot) {
   return {
     reflectionId: s.reflectionId,
-    powerPrice: r2(s.price),
+    marketPrice: r2(s.marketPrice),
     demandMw: r0(s.demandMw),
-    marginalPlant: s.auction?.marginalPlantId ?? null,
-    unservedMw: s.auction ? r0(s.auction.unservedMw) : 0,
-    fuelPrices: { gas: s.market.gasPrice, coal: s.market.coalPrice, carbon: s.market.carbonPrice },
-    plants: s.rows.map((r) => ({
+    marginalPlant: s.marketClearing?.marginalPlantId ?? null,
+    unservedDemandMw: s.marketClearing ? r0(s.marketClearing.unservedDemandMw) : 0,
+    fuelPrices: {
+      gas: s.marketPriceCategories.gasPrice,
+      coal: s.marketPriceCategories.coalPrice,
+      carbon: s.marketPriceCategories.carbonPrice,
+    },
+    plants: s.plantDispatchDetails.map((r) => ({
       id: r.plant.id,
       name: r.plant.name,
       fuel: r.plant.fuel,
@@ -101,10 +114,10 @@ export function detectEvents(prev: Snapshot | null, next: Snapshot): MarketEvent
   if (!prev) return []
   const out: MarketEvent[] = []
 
-  const prevById = new Map(prev.rows.map((r) => [r.plant.id, r]))
+  const prevById = new Map(prev.plantDispatchDetails.map((r) => [r.plant.id, r]))
 
   //loop through per plant
-  for (const row of next.rows) {
+  for (const row of next.plantDispatchDetails) {
     const before = prevById.get(row.plant.id)
     if (!before) continue
 
@@ -115,7 +128,7 @@ export function detectEvents(prev: Snapshot | null, next: Snapshot): MarketEvent
           started ? 'PLANT_STARTED' : 'PLANT_STOPPED',
           'info',
           `${row.plant.name} ${started ? 'entered' : 'left'} dispatch`,
-          `Price ${money(row.powerPrice)}/MWh; marginal cost ${money(row.marginalCost)}/MWh; margin ${money(row.spread)}/MWh`,
+          `Price ${money(row.marketPrice)}/MWh; marginal cost ${money(row.marginalCost)}/MWh; margin ${money(row.spread)}/MWh`,
           `plant:${row.plant.id}`,
           {
             plant: row.plant.name,
@@ -144,114 +157,120 @@ export function detectEvents(prev: Snapshot | null, next: Snapshot): MarketEvent
   }
 
   // the marginal clearing price set by marginal plant
-  const prevMarginal = prev.auction?.marginalPlantId
-  const nextMarginal = next.auction?.marginalPlantId
+  const prevMarginal = prev.marketClearing?.marginalPlantId
+  const nextMarginal = next.marketClearing?.marginalPlantId
   if (nextMarginal && prevMarginal && nextMarginal !== prevMarginal) {
-    const plant = next.rows.find((r) => r.plant.id === nextMarginal)?.plant
+    const plant = next.plantDispatchDetails.find((r) => r.plant.id === nextMarginal)?.plant
     out.push(
       make(
         'MARGINAL_PLANT_CHANGED',
         'info',
         `${plant?.name ?? nextMarginal} set the clearing price`,
-        `Clearing price ${money(next.price)}/MWh at ${r0(next.demandMw)} MW demand`,
+        `Clearing price ${money(next.marketPrice)}/MWh at ${r0(next.demandMw)} MW demand`,
         `plant:${nextMarginal}`,
-        { from: prevMarginal, to: nextMarginal, clearingPrice: r2(next.price), demandMw: r0(next.demandMw) },
+        { from: prevMarginal, to: nextMarginal, clearingPrice: r2(next.marketPrice), demandMw: r0(next.demandMw) },
       ),
     )
   }
 
   // merit order reordering
-  const prevOrder = prev.rows.map((r) => r.plant.id).join('>')
-  const nextOrder = next.rows.map((r) => r.plant.id).join('>')
-  if (prevOrder !== nextOrder && prev.rows.length === next.rows.length) {
-    const moved = next.rows.filter((r, i) => prev.rows[i]?.plant.id !== r.plant.id).map((r) => r.plant.name)
+  const prevOrder = prev.plantDispatchDetails.map((r) => r.plant.id).join('>')
+  const nextOrder = next.plantDispatchDetails.map((r) => r.plant.id).join('>')
+  if (prevOrder !== nextOrder && prev.plantDispatchDetails.length === next.plantDispatchDetails.length) {
+    const moved = next.plantDispatchDetails
+      .filter((r, index) => prev.plantDispatchDetails[index]?.plant.id !== r.plant.id)
+      .map((r) => r.plant.name)
     if (moved.length >= 2) {
       out.push(
         make(
           'MERIT_ORDER_REORDERED',
           'info',
           `Merit order changed: ${moved[0]} and ${moved[1]} moved`,
-          `Carbon price ${money(next.market.carbonPrice)}/t; gas price ${money(next.market.gasPrice)}/MWh`,
+          `Carbon price ${money(next.marketPriceCategories.carbonPrice)}/t; gas price ${money(next.marketPriceCategories.gasPrice)}/MWh`,
           'board',
-          { newOrder: next.rows.map((r) => r.plant.name), carbonPrice: next.market.carbonPrice, gasPrice: next.market.gasPrice },
+          {
+            newOrder: next.plantDispatchDetails.map((r) => r.plant.name),
+            carbonPrice: next.marketPriceCategories.carbonPrice,
+            gasPrice: next.marketPriceCategories.gasPrice,
+          },
         ),
       )
     }
   }
 
   //price regime
-  const delta = next.price - prev.price
-  const moved = Math.abs(delta) > 12 && Math.abs(delta) > Math.abs(prev.price) * 0.2
+  const delta = next.marketPrice - prev.marketPrice
+  const moved = Math.abs(delta) > 12 && Math.abs(delta) > Math.abs(prev.marketPrice) * 0.2
   if (moved) {
     const up = delta > 0
     out.push(
       make(
         'PRICE_CHANGED',
         'warn',
-        `Price ${up ? 'rose' : 'fell'} to ${money(next.price)}/MWh`,
-        `Change ${money(delta)}/MWh from ${money(prev.price)}/MWh`,
+        `Price ${up ? 'rose' : 'fell'} to ${money(next.marketPrice)}/MWh`,
+        `Change ${money(delta)}/MWh from ${money(prev.marketPrice)}/MWh`,
         'board',
-        { from: r2(prev.price), to: r2(next.price), delta: r2(delta) },
+        { from: r2(prev.marketPrice), to: r2(next.marketPrice), delta: r2(delta) },
       ),
     )
   }
 
-  if (next.price < 0 && prev.price >= 0) {
+  if (next.marketPrice < 0 && prev.marketPrice >= 0) {
     out.push(
       make(
         'NEGATIVE_PRICE',
         'critical',
-        `Clearing price is negative: ${money(next.price)}/MWh`,
+        `Clearing price is negative: ${money(next.marketPrice)}/MWh`,
         `Demand ${r0(next.demandMw)} MW`,
         'board',
-        { clearingPrice: r2(next.price), demandMw: r0(next.demandMw) },
+        { clearingPrice: r2(next.marketPrice), demandMw: r0(next.demandMw) },
       ),
     )
   }
 
   // system stress
-  const unserved = next.auction?.unservedMw ?? 0
-  if (unserved > 0 && (prev.auction?.unservedMw ?? 0) === 0) {
+  const unserved = next.marketClearing?.unservedDemandMw ?? 0
+  if (unserved > 0 && (prev.marketClearing?.unservedDemandMw ?? 0) === 0) {
     out.push(
       make(
         'UNSERVED_DEMAND',
         'critical',
         `Unserved demand: ${r0(unserved)} MW`,
-        `Demand ${r0(next.demandMw)} MW; dispatched output ${r0(next.totals.totalMw)} MW`,
+        `Demand ${r0(next.demandMw)} MW; dispatched output ${r0(next.fleetTotals.totalMw)} MW`,
         'board',
         { unservedMw: r0(unserved), demandMw: r0(next.demandMw) },
       ),
     )
   }
 
-  const allOn = next.totals.runningCount === next.totals.plantCount && next.totals.plantCount > 1
-  if (allOn && prev.totals.runningCount !== prev.totals.plantCount) {
+  const allOn = next.fleetTotals.runningCount === next.fleetTotals.plantCount && next.fleetTotals.plantCount > 1
+  if (allOn && prev.fleetTotals.runningCount !== prev.fleetTotals.plantCount) {
     out.push(
       make(
         'CAPACITY_EXHAUSTED',
         'warn',
         'All simulated plants are dispatched',
-        `Simulated fleet output ${r0(next.totals.totalMw)} MW`,
+        `Simulated fleet output ${r0(next.fleetTotals.totalMw)} MW`,
         'board',
-        { totalMw: r0(next.totals.totalMw), plants: next.totals.plantCount },
+        { totalMw: r0(next.fleetTotals.totalMw), plants: next.fleetTotals.plantCount },
       ),
     )
   }
 
   //renewables plants
   const zeroCostOnly =
-    next.totals.runningCount > 0 && next.rows.filter((r) => r.running).every((r) => r.marginalCost < 1)
+    next.fleetTotals.runningCount > 0 && next.plantDispatchDetails.filter((r) => r.running).every((r) => r.marginalCost < 1)
   const wasZeroCostOnly =
-    prev.totals.runningCount > 0 && prev.rows.filter((r) => r.running).every((r) => r.marginalCost < 1)
+    prev.fleetTotals.runningCount > 0 && prev.plantDispatchDetails.filter((r) => r.running).every((r) => r.marginalCost < 1)
   if (zeroCostOnly && !wasZeroCostOnly) {
     out.push(
       make(
         'RENEWABLE_SURPLUS',
         'info',
         'Running plants have near-zero marginal cost',
-        `Price ${money(next.price)}/MWh; ${next.totals.runningCount} plants running`,
+        `Price ${money(next.marketPrice)}/MWh; ${next.fleetTotals.runningCount} plants running`,
         'board',
-        { clearingPrice: r2(next.price), runningPlants: next.totals.runningCount },
+        { clearingPrice: r2(next.marketPrice), runningPlants: next.fleetTotals.runningCount },
       ),
     )
   }
@@ -266,12 +285,12 @@ export function detectEvents(prev: Snapshot | null, next: Snapshot): MarketEvent
           'HEDGE_VS_SPOT',
           'info',
           `Hedged margin is ${money(Math.abs(gap))}/h ${gap > 0 ? 'above' : 'below'} unhedged`,
-          `Spot ${money(next.price)}/MWh; hedged ${money(next.hedge.hedgedPerHour)}/h; unhedged ${money(next.hedge.unhedgedPerHour)}/h`,
+          `Spot ${money(next.marketPrice)}/MWh; hedged ${money(next.hedge.hedgedPerHour)}/h; unhedged ${money(next.hedge.unhedgedPerHour)}/h`,
           'board',
           {
             hedgedPerHour: r2(next.hedge.hedgedPerHour),
             unhedgedPerHour: r2(next.hedge.unhedgedPerHour),
-            spotPrice: r2(next.price),
+            spotPrice: r2(next.marketPrice),
           },
         ),
       )

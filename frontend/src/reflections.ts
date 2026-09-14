@@ -1,4 +1,12 @@
-import type { AuctionResult, DispatchRow, HedgeResult, Market, Plant, Totals, WalkOptions } from './sim'
+import type {
+  HedgeResult,
+  MarketClearingResult,
+  MarketPriceCategories,
+  Plant,
+  PlantDispatchDetails,
+  EntireFleetTotal,
+  WalkOptions,
+} from './sim'
 
 // The written reflections live as markdown files in ./reflections/, one per
 // chapter, pulled in at build time by Vite (same pipeline as my web portfolio).
@@ -13,13 +21,13 @@ const chapterContent = (n: number) =>
   chapterSources[`./reflections/chapter-${String(n).padStart(2, '0')}.md`] ?? ''
 
 export interface ReflectionState {
-  rows: DispatchRow[]
-  totals: Totals
-  //In auction chapters powerPrice is the clearing price — an output, not an input.
-  powerPrice: number
-  market: Market
+  rows: PlantDispatchDetails[]
+  totals: EntireFleetTotal
+  marketPrice: number // In auction chapters marketPrice is the clearing price, based on marginal plant--> marginal clearing price. 
+  // Else it is an input and based on this fixed price, with varying spark spread + carbon tax etc --> how do these factors affect the running behaviour of our renewables plants / conventional plants?
+  market: MarketPriceCategories
   demandMw: number
-  auction?: AuctionResult
+  marketClearing?: MarketClearingResult
   hedge?: HedgeResult
 }
 
@@ -32,8 +40,11 @@ export interface Trigger {
   body: string
 }
 
+
+
+
 export interface Control {
-  /** A Market key, or one of the pseudo-keys below depending on `target`. */
+  /** A MarketPriceCategories key, or one of the pseudo-keys below depending on `target`. */
   key: string
   target: 'market' | 'price' | 'demand' | 'bid' | 'availability' | 'contractMw' | 'contractPrice'
   /** Required for 'bid' and 'availability'. */
@@ -45,23 +56,21 @@ export interface Control {
   unit: string
 }
 
+
+
+
 export interface Reflection {
   id: number
   title: string
   subtitle: string
-  /** The written reflection for this chapter, as markdown. */
   content: string
-  //'price'--> based on a set price that is given then each plant reacts (how long it should stay on, for now) --> chapters 1-3, 6, 7
-  //'auction' --> based on the demand given, the final price emerges from clearing --> chapters 4, 5, 8
-  mode: 'price' | 'auction'
+  mode: 'priceTaking' | 'auction' // Price-taking chapter, vs auction chapter --> auction chapter is the only one that sets the market price, while for the rest of the chapters we are looking at a market price as a constraint
+  //based on the price, as aforementioned all the other factors must be considered to decide when a plant is economically viable to be run or not. Simplistic for this lesson, way more complex in the real world.
   priceControl: 'manual' | 'walkForward'
   initialPrice?: number
-  walkForward?: WalkOptions
-  //for auction
-  demand?: { initial: number; walk?: WalkOptions }
-  //for hedging
+  walkForward?: WalkOptions // walkForward algorithm that simulates price change.
+  demand?: { initial: number;} //Inelastic demand bid for a particular Day Ahead Market. Changed using slider
   contract?: { mw: number; price: number }
-  //for cap-and-trade: present = this chapter offers the tax/cap toggle
   carbonMarket?: {
     //starting cap in tonnes CO2 per hour
     initialCapTonnesPerHour: number
@@ -75,13 +84,16 @@ export interface Reflection {
   triggers: Trigger[]
 }
 
+
+
+
 export const REFLECTIONS: Reflection[] = [
   {
     id: 1,
     title: 'Spark Spread, and how it determines the running schedule of power plants',
     subtitle: 'To balance cost of running the plant with the revenue returned from electricity contracts',
     content: chapterContent(1),
-    mode: 'price',
+    mode: 'priceTaking',
     priceControl: 'manual',
     initialPrice: 95,
     plants: [{ id: 'ccgt', name: 'Modern CCGT Exp', fuel: 'GAS', capacityMw: 800, efficiency: 0.55, co2PerMwh: 0.35 }],
@@ -115,15 +127,13 @@ export const REFLECTIONS: Reflection[] = [
       },
     ],
   },
-
-  // -------------------------------------------------------------------------
   {
     id: 2,
     title: 'Efficiency and how it is central to a plant\'s economic viability',
     subtitle: 'A less efficient plant that burns more gas per unit of electricity produced, naturally cannot produce \
     as much returns compared to a plant that is much more fuel efficient. That is why turning to renewable methods is also the next step forward.',
     content: chapterContent(2),
-    mode: 'price',
+    mode: 'priceTaking',
     priceControl: 'manual',
     initialPrice: 85,
     plants: [
@@ -160,13 +170,12 @@ export const REFLECTIONS: Reflection[] = [
       },
     ],
   },
-
   {
     id: 3,
     title: 'The merit order',
     subtitle: 'From what I have learnt, merit order is sketching out a precedence plan, for which plants to run based on their marginal costs.',
     content: chapterContent(3),
-    mode: 'price',
+    mode: 'priceTaking',
     priceControl: 'walkForward',
     walkForward: { base: 80, reversion: 0.04, volatility: 22, floor: -20, ceiling: 260 },
     plants: [
@@ -186,7 +195,7 @@ export const REFLECTIONS: Reflection[] = [
         when: (s) => s.totals.runningCount > 0 && s.rows.filter((r) => r.running).every((r) => r.marginalCost < 1),
         anchor: 'board',
         title: 'Only the zero-fuel plants are running',
-        body: 'Wind and solar buy no fuel, so their marginal cost is around £0 and they run whenever the weather allows, almost regardless of price. From my reading this is what pushes market prices <b>down</b> — the Merit Order Effect.',
+        body: 'Wind and solar buy no fuel, so their marginal cost is around £0 and they run whenever the weather allows, almost regardless of price. From my reading this is what pushes market prices <b>down</b> - the Merit Order Effect.',
       },
       {
         id: 'peaker-on',
@@ -213,8 +222,6 @@ export const REFLECTIONS: Reflection[] = [
       },
     ],
   },
-
-  // -------------------------------------------------------------------------
   {
     id: 4,
     title: 'Price Auctions at the European Energy Market',
@@ -255,29 +262,27 @@ export const REFLECTIONS: Reflection[] = [
       },
       {
         id: 'peaker-sets-price',
-        when: (s) => s.auction?.marginalPlantId === 'peaker',
+        when: (s) => s.marketClearing?.marginalPlantId === 'peaker',
         anchor: 'plant:peaker',
         title: 'The peaker is now the marginal plant',
         body: 'We have moved into the steep end of the stack, so this plant’s offer is what the whole market pays. A small rise in demand has produced a large rise in price, which from my reading is what a price spike on a cold, still evening looks like.',
       },
       {
         id: 'blackout',
-        when: (s) => (s.auction?.unservedMw ?? 0) > 0,
+        when: (s) => (s.marketClearing?.unservedDemandMw ?? 0) > 0,
         anchor: 'board',
         title: 'Demand exceeds the whole fleet',
         body: 'There is nothing left to switch on. I read that in a real system the price would rise to the cap and the operator would begin paying industrial users to reduce consumption, since supply and demand must match and supply can no longer rise.',
       },
       {
         id: 'cheap-only',
-        when: (s) => s.powerPrice < 30 && s.totals.runningCount > 0,
+        when: (s) => s.marketPrice < 30 && s.totals.runningCount > 0,
         anchor: 'board',
         title: 'A low-priced period',
         body: 'Demand is low enough to be met entirely by the zero and low-cost plants, so the marginal plant is a cheap one and the clearing price falls with it. No gas plant is needed here, so no gas plant sets the price.',
       },
     ],
   },
-
-  // -------------------------------------------------------------------------
   {
     id: 5,
     title: 'Bidding & market power',
@@ -320,23 +325,21 @@ export const REFLECTIONS: Reflection[] = [
       },
       {
         id: 'you-are-marginal',
-        when: (s) => s.auction?.marginalPlantId === 'effccgt',
+        when: (s) => s.marketClearing?.marginalPlantId === 'effccgt',
         anchor: 'plant:effccgt',
         title: 'This plant is setting the price',
         body: 'Our plant is the marginal one, so its offer is what the whole market pays. From my reading this seems to be the position with the most influence and the least margin, since it earns only the gap between its offer and its own cost.',
       },
     ],
   },
-
-  // -------------------------------------------------------------------------
   {
     id: 6,
-    title: 'Futures contracts',
-    subtitle: 'The Day Ahead is a solid platform that systematically settles prices and power supply contractual guarantees for the following day. \
+    title: 'Forward hedging: forwards, futures, and PPAs',
+    subtitle: 'The Day Ahead is a platform that systematically settles prices and power supply contractual guarantees for the following day. \
     However, it is still exposed to spot-price volatility. \
     Therefore, forward and futures contracts establish the next level of certainty through long term deals, enabling resiliency and forecasting.',
     content: chapterContent(6),
-    mode: 'price',
+    mode: 'priceTaking',
     priceControl: 'walkForward',
     walkForward: { base: 85, reversion: 0.04, volatility: 26, floor: -20, ceiling: 260 },
     contract: { mw: 600, price: 90 },
@@ -370,14 +373,12 @@ export const REFLECTIONS: Reflection[] = [
       },
     ],
   },
-
-
   {
     id: 7,
     title: 'Carbon pricing, and how it internalises pollution as a market cost',
     subtitle: 'Pollution has long been treated as a negative externality. Carbon pricing appears to be the mechanism that brings that cost back inside the market, steering both dispatch and longer-term capital expenditure towards cleaner solutions.',
     content: chapterContent(7),
-    mode: 'price',
+    mode: 'priceTaking',
     priceControl: 'manual',
     initialPrice: 100,
     // Starts just above this fleet's uncapped 1,247 t/h, so the cap begins
@@ -423,7 +424,6 @@ export const REFLECTIONS: Reflection[] = [
       },
     ],
   },
-
   {
     id: 8,
     title: 'Negative prices',
@@ -446,14 +446,14 @@ export const REFLECTIONS: Reflection[] = [
     triggers: [
       {
         id: 'negative',
-        when: (s) => s.powerPrice < 0,
+        when: (s) => s.marketPrice < 0,
         anchor: 'board',
         title: 'The clearing price has gone below zero',
         body: 'Generators are now paying to put power on the grid. The subsidised wind farm still profits because its support payment exceeds what it is paying, while the unsubsidised plants are penalised for producing.',
       },
       {
         id: 'deep-negative',
-        when: (s) => s.powerPrice < -30,
+        when: (s) => s.marketPrice < -30,
         once: true,
         anchor: 'board',
         title: 'The price is deeply negative',
@@ -461,7 +461,7 @@ export const REFLECTIONS: Reflection[] = [
       },
       {
         id: 'back-positive',
-        when: (s) => s.powerPrice > 20,
+        when: (s) => s.marketPrice > 20,
         anchor: 'board',
         title: 'The price is positive again',
         body: 'Demand now exceeds what the zero-fuel plants can supply, so a conventional plant is marginal again and sets a positive price. I notice how quickly it flipped, which seems to be exactly the volatility that flexible generation is paid for.',

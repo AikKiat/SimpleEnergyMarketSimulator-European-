@@ -1,24 +1,16 @@
 /**
- * Board.tsx — the numbers panel.
- *
- * The big price readout, the fleet stats, and the merit-order stack. The stack is
- * the single most useful picture in this whole field: one bar per plant, sorted
- * cheapest-first, with a vertical marker showing where the power price sits.
- * Everything ending left of the marker is cheaper than the price, so it runs.
- *
- * In auction chapters the price readout is an OUTPUT — so we also name the
- * marginal plant that set it, which is the point of the whole exercise.
+ * Board.tsx - the numbers panel.
  */
 
 import {
   FUELS,
   r0,
   r2,
-  type AuctionResult,
+  type MarketClearingResult,
   type CarbonMarketResult,
-  type DispatchRow,
+  type PlantDispatchDetails,
   type HedgeResult,
-  type Totals,
+  type EntireFleetTotal,
 } from '../sim'
 
 const money = (v: number) => (v < 0 ? '−' : '') + '£' + Math.abs(v).toFixed(2)
@@ -44,30 +36,30 @@ export function Board({
   totals,
   powerPrice,
   profitAndLoss,
-  auction,
+  marketClearing,
   demandMw,
   hedge,
   liveIntensity,
   carbonPrice,
   carbon,
 }: {
-  rows: DispatchRow[]
-  totals: Totals
+  rows: PlantDispatchDetails[]
+  totals: EntireFleetTotal
   powerPrice: number
   profitAndLoss: number
-  auction?: AuctionResult
+  marketClearing?: MarketClearingResult
   demandMw?: number
   hedge?: HedgeResult
-  /** Real gCO2/kWh from the Carbon Intensity API, when that feed is synced. */
+  // Real gCO2/kWh from the Carbon Intensity API, when that feed is synced.
   liveIntensity?: { gramsPerKwh: number; index: string | null } | null
-  /** The simulated £/tonne from the slider — a different quantity entirely. */
+  // The simulated £/tonne from the slider - a different quantity entirely.
   carbonPrice?: number
-  /** Present only while cap-and-trade is running. */
+  // Present only while cap-and-trade is running.
   carbon?: CarbonMarketResult | null
 }) {
-  const marginalPlant = auction ? rows.find((r) => r.plant.id === auction.marginalPlantId)?.plant : undefined
+  const marginalPlant = marketClearing ? rows.find((r) => r.plant.id === marketClearing.marginalPlantId)?.plant : undefined
 
-  // Scale so the price marker, the cheapest offer and the tallest bar all fit —
+  // Scale so the price marker, the cheapest offer and the tallest bar all fit -
   // including negative prices, which are a whole lesson of their own.
   const values = rows.flatMap((r) => [r.marginalCost, r.offer ?? r.marginalCost])
   const lo = Math.min(0, powerPrice, ...values)
@@ -78,7 +70,7 @@ export function Board({
   return (
     <div className="board">
       <div className="price-card">
-        <div className="price-label">{auction ? 'CLEARING PRICE' : 'POWER PRICE'}</div>
+        <div className="price-label">{marketClearing ? 'CLEARING PRICE' : 'POWER PRICE'}</div>
         <div className={`price-value ${powerPrice < 0 ? 'bad' : ''}`}>£{r2(powerPrice).toFixed(2)}</div>
         <div className="price-unit">per MWh</div>
         {marginalPlant && <div className="price-note">set by {marginalPlant.name}</div>}
@@ -88,8 +80,8 @@ export function Board({
         {demandMw != null && <Stat label="Demand" value={`${r0(demandMw)} MW`} />}
         <Stat label="Online" value={`${totals.runningCount}/${totals.plantCount}`} />
         <Stat label="Output" value={`${r0(totals.totalMw)} MW`} />
-        {auction && auction.unservedMw > 0 && (
-          <Stat label="Unserved" value={`${r0(auction.unservedMw)} MW`} tone="bad" />
+        {marketClearing && marketClearing.unservedDemandMw > 0 && (
+          <Stat label="Unserved" value={`${r0(marketClearing.unservedDemandMw)} MW`} tone="bad" />
         )}
         <Stat
           label="Margin"
@@ -163,8 +155,8 @@ export function Board({
             <span className={hedge.hedgedPerHour >= 0 ? 'good' : 'bad'}>{compactMoney(hedge.hedgedPerHour)}/h</span>
           </div>
           <div className="hedge-note">
-            The contract alone contributes {compactMoney(hedge.contractSettlementPerHour)}/h. Watch how much steadier
-            the hedged number is as the price swings.
+            Fixed-price revenue is {compactMoney(hedge.fixedContractRevenuePerHour)}/h. The hedge differs from spot by{' '}
+            {compactMoney(hedge.hedgeDifferenceFromSpotPerHour)}/h.
           </div>
         </div>
       )}
@@ -204,7 +196,7 @@ export function Board({
 
         <div className="stack-legend">
           <span className="marker-key" /> the vertical line is the{' '}
-          <b>{auction ? 'clearing price' : 'power price'}</b>. Bars ending left of it are cheaper than the price, so
+          <b>{marketClearing ? 'clearing price' : 'power price'}</b>. Bars ending left of it are cheaper than the price, so
           they run.
         </div>
       </div>

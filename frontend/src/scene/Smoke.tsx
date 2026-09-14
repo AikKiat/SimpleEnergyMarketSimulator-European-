@@ -1,4 +1,5 @@
 //Coded with help using Claude. Smoke graphics are tough
+// Three.js models
 
 import { useRef } from 'react'
 import * as THREE from 'three'

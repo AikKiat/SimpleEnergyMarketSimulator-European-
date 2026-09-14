@@ -23,26 +23,26 @@ export interface Plant {
   subsidyPerMwh?: number
 }
 
-export interface Market {
+export interface MarketPriceCategories {
   gasPrice: number   // euro per MWh of gas energy (thermal input, before efficiency losses).
   coalPrice: number
   nuclearFuelPrice: number //euro per tonne of CO2 emitted.
   carbonPrice: number
 }
 
-export interface DispatchRow {
+export interface PlantDispatchDetails {
   plant: Plant
   marginalCost: number
-  powerPrice: number // The spark spread: powerPrice - marginalCost. Positive = worth running.
-  spread: number
+  marketPrice: number
+  spread: number // Revenue - marginal cost per MWh. Positive = worth running.
   running: boolean
-  mw: number //euro per hour, since spread is £/MWh and mw is MW (= MWh per hour). */
-  profitPerHour: number //Auction mode only: this is the plant that set the clearing price. */
-  isMarginal?: boolean //Auction mode only: the price this plant offered. */
-  offer?: number
+  mw: number
+  profitPerHour: number //euro per hour, since spread is £/MWh and mw is MW (= MWh per hour). 
+  isMarginal?: boolean //Auction mode only: this is the plant that set the clearing price. 
+  offer?: number //Auction mode only: the price this plant offered. 
 }
 
-export interface Totals {
+export interface EntireFleetTotal {
   runningCount: number
   plantCount: number
   totalMw: number
@@ -66,12 +66,12 @@ export const FUELS: Record<FuelKey, FuelMeta> = {
   SOLAR: { label: 'Solar', colour: 0xfacc15, css: '#facc15', thermal: false },
 }
 
-export function defaultMarket(): Market {
+export function defaultMarket(): MarketPriceCategories {
   return { gasPrice: 30, coalPrice: 15, nuclearFuelPrice: 8, carbonPrice: 40 }
 }
 
 //What one MWh of raw fuel energy costs, before efficiency losses.
-export function fuelPricePerThermalMwh(fuel: FuelKey, market: Market): number {
+export function fuelPricePerThermalMwh(fuel: FuelKey, market: MarketPriceCategories): number {
   switch (fuel) {
     case 'GAS':
       return market.gasPrice
@@ -84,13 +84,16 @@ export function fuelPricePerThermalMwh(fuel: FuelKey, market: Market): number {
   }
 }
 
+
+
+
 /**
  * MARGINAL COST — one plant's euro/MWh break-even price.
  *
  *     marginalCost = (fuelPrice / efficiency) + (co2PerMwh × carbonPrice)
  *
  */
-export function marginalCost(plant: Plant, market: Market): number {
+export function marginalCost(plant: Plant, market: MarketPriceCategories): number {
   const thermal = fuelPricePerThermalMwh(plant.fuel, market)
   const fuelCost = plant.efficiency > 0 ? thermal / plant.efficiency : 0
   const carbonCost = plant.co2PerMwh * market.carbonPrice
@@ -102,23 +105,25 @@ export function availableMw(plant: Plant): number {
   return plant.capacityMw * (plant.availability ?? 1)
 }
 
+
+
 /**
  * The price a plant offers into auction.
  *
  * Without an output-linked subsidy, honest bidding means offering at marginal cost.
  * A subsidy shifts the break-even offer down because it is earned on every MWh generated.
  */
-export function offerPrice(plant: Plant, market: Market, bidsById: Record<string, number> = {}): number {
+export function offerPrice(plant: Plant, market: MarketPriceCategories, bidsById: Record<string, number> = {}): number {
   const explicit = bidsById[plant.id]
   if (explicit != null) return explicit
   return marginalCost(plant, market) - (plant.subsidyPerMwh ?? 0)
 }
 
 
-//Main Dispatch engine methid --> determines based on the various metrics, whether a plant will be running or not. Returns hence the array of DispatchRow objects
-export function dispatchAtPrice(plants: Plant[], powerPrice: number, market: Market): DispatchRow[] {
+//Main Dispatch engine methid --> determines based on the various metrics, whether a plant will be running or not. Returns hence the array of PlantDispatchDetails objects
+export function dispatchAtPrice(plants: Plant[], powerPrice: number, market: MarketPriceCategories): PlantDispatchDetails[] {
   return plants
-    .map<DispatchRow>((plant) => {
+    .map<PlantDispatchDetails>((plant) => {
       const cost = marginalCost(plant, market)
       const spread = powerPrice + (plant.subsidyPerMwh ?? 0) - cost
       const running = spread > 0
@@ -126,7 +131,7 @@ export function dispatchAtPrice(plants: Plant[], powerPrice: number, market: Mar
       return {
         plant,
         marginalCost: cost,
-        powerPrice,
+        marketPrice: powerPrice,
         spread,
         running,
         mw,
@@ -136,12 +141,12 @@ export function dispatchAtPrice(plants: Plant[], powerPrice: number, market: Mar
     .sort((a, b) => a.marginalCost - b.marginalCost)
 }
 
-export interface AuctionResult {
-  rows: DispatchRow[]
-  marketClearingPrice: number
+export interface MarketClearingResult {
+  plantDispatchDetails: PlantDispatchDetails[]
+  clearingPrice: number
   marginalPlantId: string | null
-  servedMw: number
-  unservedMw: number
+  clearedQuantityMw: number
+  unservedDemandMw: number
 }
 
 
@@ -149,9 +154,9 @@ export interface AuctionResult {
 export function clearAuction(
   plants: Plant[],
   demandMw: number,
-  market: Market,
+  market: MarketPriceCategories,
   bidsById: Record<string, number> = {},
-): AuctionResult {
+): MarketClearingResult {
   const offers = plants
     .map((plant) => ({
       plant,
@@ -162,7 +167,7 @@ export function clearAuction(
     .sort((a, b) => a.offer - b.offer)
 
   let remaining = demandMw
-  let marketClearingPrice = 0
+  let clearingPrice = 0
   let marginalPlantId: string | null = null
 
   const taken = offers.map((o) => {
@@ -172,7 +177,7 @@ export function clearAuction(
 
       // Each plant we take pushes the price up to its offer, so eventually the clearing price is the ask price of the marginal plant. 
       // update the marginal plant as long as mwRemaining (from demand) > 0
-      marketClearingPrice = o.offer
+      clearingPrice = o.offer
       marginalPlantId = o.plant.id
     }
     return { ...o, mwRemaining, running: mwRemaining > 0 }
@@ -181,13 +186,13 @@ export function clearAuction(
   
 
 
-  const rows: DispatchRow[] = taken.map((t) => {
-    const spread = marketClearingPrice + (t.plant.subsidyPerMwh ?? 0) - t.marginalCost
+  const plantDispatchDetails: PlantDispatchDetails[] = taken.map((t) => {
+    const spread = clearingPrice + (t.plant.subsidyPerMwh ?? 0) - t.marginalCost
     return {
       plant: t.plant,
       marginalCost: t.marginalCost,
       offer: t.offer,
-      powerPrice: marketClearingPrice, //this is the final market clearing price
+      marketPrice: clearingPrice,
       spread,
       running: t.running,
       mw: t.mwRemaining,
@@ -196,10 +201,16 @@ export function clearAuction(
     }
   })
 
-  return { rows, marketClearingPrice, marginalPlantId, servedMw: demandMw - Math.max(0, remaining), unservedMw: Math.max(0, remaining) }
+  return {
+    plantDispatchDetails,
+    clearingPrice,
+    marginalPlantId,
+    clearedQuantityMw: demandMw - Math.max(0, remaining),
+    unservedDemandMw: Math.max(0, remaining),
+  }
 }
 
-export function totals(rows: DispatchRow[]): Totals {
+export function totals(rows: PlantDispatchDetails[]): EntireFleetTotal {
   const running = rows.filter((r) => r.running)
   return {
     runningCount: running.length,
@@ -213,7 +224,7 @@ export function totals(rows: DispatchRow[]): Totals {
 
 //Cap and Trade
 //Function that calculates the total overall Tonnes of CO2 potentially produced, from all running plants
-export function emissionsTonnesPerHour(rows: DispatchRow[]): number {
+export function emissionsTonnesPerHour(rows: PlantDispatchDetails[]): number {
   return rows.filter((r) => r.running).reduce((sum, r) => sum + r.mw * r.plant.co2PerMwh, 0)
 }
 
@@ -247,7 +258,7 @@ export interface CarbonMarketResult {
  */
 export function clearCarbonMarket(
   cap: number,
-  dispatchAt: (carbonPrice: number) => DispatchRow[],
+  dispatchAt: (carbonPrice: number) => PlantDispatchDetails[],
   maxPrice = 300,
 ): CarbonMarketResult {
   const emissionsAt = (p: number) => emissionsTonnesPerHour(dispatchAt(p))
@@ -279,14 +290,16 @@ export interface HedgeResult {
   unhedgedPerHour: number
   /** What you actually earn once the contract is settled — much steadier. */
   hedgedPerHour: number
-  /** The contract's contribution alone (positive when spot < contract price). */
-  contractSettlementPerHour: number
+  /** Revenue from the volume sold at the agreed fixed price. */
+  fixedContractRevenuePerHour: number
+  /** Hedged margin less unhedged margin; positive when fixed price exceeds spot. */
+  hedgeDifferenceFromSpotPerHour: number
   spotRevenuePerHour: number
   costPerHour: number
 }
 
 /**
- * Settle a plant's hour against a forward contract.
+ * Calculate a plant's hour with a physical fixed-price forward contract.
  *
  *   Profit = (Q_spot − Q_contract) × P_spot
  *          +  Q_contract × P_contract
@@ -302,21 +315,23 @@ export interface HedgeResult {
  * contracts quietly discipline generators into bidding competitively.
  */
 export function settleWithContract(
-  row: DispatchRow,
+  row: PlantDispatchDetails,
   contractMw: number,
   contractPrice: number,
 ): HedgeResult {
   const produced = row.mw
-  const spot = row.powerPrice
+  const spot = row.marketPrice
   const costPerHour = row.marginalCost * produced
 
   const spotRevenuePerHour = (produced - contractMw) * spot
-  const contractSettlementPerHour = contractMw * contractPrice
+  const fixedContractRevenuePerHour = contractMw * contractPrice
+  const hedgeDifferenceFromSpotPerHour = contractMw * (contractPrice - spot)
 
   return {
     unhedgedPerHour: produced * spot - costPerHour,
-    hedgedPerHour: spotRevenuePerHour + contractSettlementPerHour - costPerHour,
-    contractSettlementPerHour,
+    hedgedPerHour: spotRevenuePerHour + fixedContractRevenuePerHour - costPerHour,
+    fixedContractRevenuePerHour,
+    hedgeDifferenceFromSpotPerHour,
     spotRevenuePerHour,
     costPerHour,
   }

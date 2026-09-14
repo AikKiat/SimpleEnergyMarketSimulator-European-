@@ -2,7 +2,7 @@
 
 import { Canvas } from '@react-three/fiber'
 import { Html, OrbitControls } from '@react-three/drei'
-import type { DispatchRow, Plant } from '../sim'
+import type { Plant, PlantDispatchDetails } from '../sim'
 import { PlantView } from './Plants'
 import { EventCard } from '../ui/EventCard'
 import type { MarketEvent, Snapshot } from '../events'
@@ -12,7 +12,7 @@ const SPACING = 7
 //due to height difference between plants, wind turbines have text bubbles being positioned higher hence anchorHeight is set at a greater y position.
 const anchorHeight = (plant: Plant) => (plant.fuel === 'WIND' ? 6.4 : plant.fuel === 'SOLAR' ? 2.6 : 4.6)
 
-export function Stage({plants, rows, cards, snapshot, onDismiss,}: {plants: Plant[], rows: DispatchRow[], cards: MarketEvent[], snapshot: Snapshot, onDismiss: (id: string) => void}) {
+export function Stage({plants, rows, cards, snapshot, onDismiss,}: {plants: Plant[], rows: PlantDispatchDetails[], cards: MarketEvent[], snapshot: Snapshot, onDismiss: (id: string) => void}) {
   
   
   const rowById = new Map(rows.map((r) => [r.plant.id, r]))

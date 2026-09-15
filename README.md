@@ -89,13 +89,13 @@ Drawn with the [C4 model](https://c4model.com): Level 2 shows the deployable
 containers and how they talk to each other; Level 3 zooms into the Spring
 container to follow one reading from NESO to the browser.
 
-#### Level 2 — Containers
+#### Level 2 - Containers
 
-![C4 Level 2 — containers](docs/architecture/c4-level-2-Container-Level.drawio.svg)
+![C4 Level 2 - containers](docs/architecture/c4-level-2-Container-Level.drawio.svg)
 
-#### Level 3 — Spring components: the streaming flow
+#### Level 3 - Spring components: the streaming flow
 
-![C4 Level 3 — Spring components](docs/architecture/c4-level-3-Spring-Components.drawio.svg)
+![C4 Level 3 - Spring components](docs/architecture/c4-level-3-Spring-Components.drawio.svg)
 
 The backend is deliberately small: a **poll → publish → project → serve**
 pipeline. Every five minutes a scheduled producer pulls the live GB generation
@@ -103,17 +103,16 @@ mix and carbon intensity from NESO's Carbon Intensity API, deserialises and
 validates the payload at the boundary, and publishes a `MarketData` event to a
 single-partition Kafka topic. A consumer projects the latest event into an
 in-memory read model, and `GET /api/market/live` serves that as a
-`MarketSnapshot`. Kafka sits between producer and consumer so an upstream
-outage never takes the endpoint down — it keeps serving the last good reading.
+`MarketSnapshot`. Kafka sits between producer and consumer, and serves the last good reading.
 
 #### Data contracts
 
 Data crosses three boundaries, each with its own agreed shape and a single
-owner. Boundary 1 is the only place untrusted data enters, so that is where it
-is validated: Jakarta Bean Validation on the wire DTOs (Java's equivalent of a
-zod or pydantic schema), plus one cross-field rule that annotations cannot
-express. Boundary 2 is protected by the records' compact constructors, so an
-invalid event cannot be constructed on either side of Kafka.
+owner.
+For API sanitisation we use Jakarta Bean Validation on the DTOs (Java's equivalent of a
+zod or pydantic schema) --> precisely to validate the schema contract between NESO's Carbon Intensity API and the shape our backend expects.
+
+Further downstrean we perform more type and attribute edge case validation, within the constructors of our Data Contract classes.
 
 ```text
 Boundary 1 --> NESO Carbon Intensity API --> Spring backend   (wire DTOs, validated on arrival)

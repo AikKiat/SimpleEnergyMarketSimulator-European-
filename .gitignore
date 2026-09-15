@@ -54,3 +54,4 @@ nginx/certs/
 **/.cmd
 **/.md
 *.local
+docs/architecture/ARCHITECTURE.md

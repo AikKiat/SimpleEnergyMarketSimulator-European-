@@ -91,11 +91,11 @@ container to follow one reading from NESO to the browser.
 
 #### Level 2 — Containers
 
-![C4 Level 2 — containers](docs/architecture/c4-level-2-containers.drawio.svg)
+![C4 Level 2 — containers](docs/architecture/c4-level-2-Container-Level.drawio.svg)
 
 #### Level 3 — Spring components: the streaming flow
 
-![C4 Level 3 — Spring components](docs/architecture/c4-level-3-components.drawio.svg)
+![C4 Level 3 — Spring components](docs/architecture/c4-level-3-Spring-Components.drawio.svg)
 
 The backend is deliberately small: a **poll → publish → project → serve**
 pipeline. Every five minutes a scheduled producer pulls the live GB generation

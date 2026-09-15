@@ -1,4 +1,4 @@
-package com.example.demo.ingestion.model;
+package com.example.demo.ingestion.domain_contract;
 
 import java.util.List;
 import java.util.Objects;
@@ -29,12 +29,10 @@ public record MarketData(
         if (from.isBlank() || to.isBlank()) {
             throw new IllegalArgumentException("settlement window (from/to) must not be blank");
         }
-        // Defensive copy: the caller's list can be mutated later; ours cannot.
-        // List.copyOf also rejects null elements, so every entry is a real FuelShare.
+
         mix = List.copyOf(Objects.requireNonNull(mix, "mix must not be null"));
         if (carbonIntensityGramsPerKwh != null && carbonIntensityGramsPerKwh < 0) {
-            throw new IllegalArgumentException(
-                    "carbonIntensityGramsPerKwh must not be negative, got " + carbonIntensityGramsPerKwh);
+            throw new IllegalArgumentException("carbonIntensityGramsPerKwh must not be negative, got " + carbonIntensityGramsPerKwh);
         }
     }
 }

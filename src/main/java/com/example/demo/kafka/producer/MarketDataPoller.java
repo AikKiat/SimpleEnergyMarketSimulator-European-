@@ -1,12 +1,14 @@
-package com.example.demo.ingestion.carbon;
+package com.example.demo.kafka.producer;
 
-import com.example.demo.ingestion.model.MarketData;
-import com.example.demo.messaging.Topics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+
+import com.example.demo.ingestion.carbon.CarbonIntensityClient;
+import com.example.demo.ingestion.domain_contract.MarketData;
+import com.example.demo.kafka.topics.Topics;
 
 /**
  * The producer end of the ETL: on a schedule, pulls live GB market data and
@@ -33,11 +35,17 @@ public class MarketDataPoller {
     public void poll() {
         try {
             MarketData data = client.fetchCurrentMarketData();
+            if (data == null){
+                log.warn("[MARKET DATA POLLER on CARBON INTENSITY API REST CLIENT] Error, the returned MarketData object from the Rest client is null. Check errors in querying the external api service.");
+                return; // nothing to publish --> projector will keep serving the last good reading
+            }
+           
             kafka.send(Topics.MARKET_DATA, data.from(), data);
-            log.info("Published market data {} -> {} ({} fuels, {} gCO2/kWh)",
-                    data.from(), data.to(), data.mix().size(), data.carbonIntensityGramsPerKwh());
+            log.info("Published market data {} -> {} ({} fuels, {} gCO2/kWh)", data.from(), data.to(), data.mix().size(), data.carbonIntensityGramsPerKwh());
+        
+
         } catch (Exception e) {
-            log.warn("Market data poll failed: {}", e.getMessage());
+            log.warn("[MARKET DATA POLLER] Market data poll failed: {}", e.getMessage());
         }
     }
 }

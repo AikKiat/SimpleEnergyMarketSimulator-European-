@@ -1,4 +1,4 @@
-package com.example.demo.ingestion.model;
+package com.example.demo.ingestion.domain_contract;
 
 import java.util.Objects;
 
@@ -14,8 +14,7 @@ public record FuelShare(String fuel, double perc) {
             throw new IllegalArgumentException("fuel must not be blank");
         }
         if (Double.isNaN(perc) || perc < 0.0 || perc > 100.0) {
-            throw new IllegalArgumentException(
-                    "perc must be within 0..100, got " + perc + " for fuel '" + fuel + "'");
+            throw new IllegalArgumentException("perc must be within 0..100, got " + perc + " for fuel '" + fuel + "'");
         }
     }
 }

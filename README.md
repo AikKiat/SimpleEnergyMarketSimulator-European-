@@ -85,23 +85,128 @@ price, wind availability, demand, strategic bid...etc.
 
 ### Backend Architecture
 
-![Backend architecture — container view](docs/architecture/backend-architecture.drawio.svg)
+Drawn with the [C4 model](https://c4model.com): Level 2 shows the deployable
+containers and how they talk to each other; Level 3 zooms into the Spring
+container to follow one reading from NESO to the browser.
+
+#### Level 2 — Containers
+
+![C4 Level 2 — containers](docs/architecture/c4-level-2-containers.drawio.svg)
+
+#### Level 3 — Spring components: the streaming flow
+
+![C4 Level 3 — Spring components](docs/architecture/c4-level-3-components.drawio.svg)
 
 The backend is deliberately small: a **poll → publish → project → serve**
 pipeline. Every five minutes a scheduled producer pulls the live GB generation
-mix and carbon intensity from NESO's Carbon Intensity API, validates the payload
-at the boundary, and publishes a `MarketData` event to a single-partition Kafka
-topic. A consumer projects the latest event into an in-memory read model, and
-`GET /api/market/live` serves that as a `MarketSnapshot`. Kafka sits between
-producer and consumer so an upstream outage never takes the endpoint down — it
-keeps serving the last good reading.
+mix and carbon intensity from NESO's Carbon Intensity API, deserialises and
+validates the payload at the boundary, and publishes a `MarketData` event to a
+single-partition Kafka topic. A consumer projects the latest event into an
+in-memory read model, and `GET /api/market/live` serves that as a
+`MarketSnapshot`. Kafka sits between producer and consumer so an upstream
+outage never takes the endpoint down — it keeps serving the last good reading.
 
-The full walkthrough — C4 context and container views, the component-level
-streaming flow, the data contracts at each boundary, and the Kafka design
-decisions (why one partition, why a compacted topic is the natural next step) —
-is in [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md).
-The diagram above is a `.drawio.svg`: it renders as a normal image here and
-opens directly in [diagrams.net](https://app.diagrams.net) for editing.
+#### Data contracts
+
+Data crosses three boundaries, each with its own agreed shape and a single
+owner. Boundary 1 is the only place untrusted data enters, so that is where it
+is validated: Jakarta Bean Validation on the wire DTOs (Java's equivalent of a
+zod or pydantic schema), plus one cross-field rule that annotations cannot
+express. Boundary 2 is protected by the records' compact constructors, so an
+invalid event cannot be constructed on either side of Kafka.
+
+```text
+Boundary 1 --> NESO Carbon Intensity API --> Spring backend   (wire DTOs, validated on arrival)
+
+CarbonIntensityApi  (ingestion.carbon; sealed marker interface)
+Permits:
+  |_ GenerationMix   <-- GET /generation
+  |_ Intensity       <-- GET /intensity
+
+GenerationMix  (ingestion.carbon)
+  |_ data : Data   (@NotNull, @Valid)
+      |_ from          : String        (@NotBlank)
+      |_ to            : String        (@NotBlank)
+      |_ generationmix : List<Entry>   (@NotEmpty, each @Valid)
+
+Entry
+  |_ fuel : String   (@NotBlank)
+  |_ perc : double   (@DecimalMin("0.0"), @DecimalMax("100.0"))
+
+Intensity  (ingestion.carbon)
+  |_ data : List<IntensityData>   (@NotEmpty, each @Valid)   <-- NESO wraps this one in an array
+      |_ from      : String    (@NotBlank)
+      |_ to        : String    (@NotBlank)
+      |_ intensity : Reading   (@NotNull, @Valid)
+
+Reading
+  |_ forecast : Integer   nullable
+  |_ actual   : Integer   nullable until the settlement period closes
+  |_ index    : String
+
+Cross-field rule, enforced in code because annotations cannot express it:
+  sum(perc) across the generation mix must be within 1% of 100
+
+              |  CarbonIntensityClient maps wire DTO --> MarketData
+              |  (anti-corruption layer: NESO's shape stops here)
+              v
+
+Boundary 2 --> Kafka event (poller -> topic -> projector)   (message schema)
+
+MarketData  (ingestion.domain_contract)   invariants in the compact constructor:
+  |_ from                       : String            not null, not blank
+  |_ to                         : String            not null, not blank
+  |_ mix                        : List<FuelShare>   not null; defensively copied, immutable
+  |_ carbonIntensityGramsPerKwh : Integer?          null, or >= 0
+  |_ carbonIntensityIndex       : String?           nullable
+
+FuelShare  (ingestion.domain_contract)   compact constructor:
+  |_ fuel : String   not null, not blank
+  |_ perc : double   0.0 .. 100.0, NaN rejected
+
+The same constructors run when Jackson rebuilds the record on the consumer
+side, so a malformed message can never become a MarketData either.
+
+              |  MarketProjector.snapshot() projects the latest event
+              v
+
+Boundary 3 --> API response, backend -> browser   (serving contract)
+
+MarketSnapshot  (dto)
+  |_ at         : java.time.Instant
+  |_ settlement : String?                "{from} -> {to}"  -- the spaces are part of
+                                         the contract: market.ts splits on " -> "
+  |_ feeds      : Map<String, FeedView>  keys: generationMix | carbonIntensity
+                                               | powerPrice | fuelPrices
+
+FeedView  (dto)
+  |_ status   : Status     enum, sent by name: AVAILABLE | NOT_WIRED | UNAVAILABLE
+  |_ source   : String     e.g. "Carbon Intensity API"
+  |_ endpoint : String
+  |_ region   : String
+  |_ access   : String     label from the FeedAccess enum, shown verbatim
+  |_ note     : String?    why unavailable, when it is
+  |_ data     : FeedData?  null unless status is AVAILABLE
+
+FeedAccess  (dto enum; only its label crosses the wire)
+  |_ FREE_NO_KEY            --> "Free API, no registered key required"
+  |_ FREE_API_KEY_REQUIRED  --> "Free API, registered key is required"
+  |_ PAID                   --> "A paid API endpoint. Need to pay and register to use"
+
+FeedData  (dto; sealed interface -- a value is ONE of these, never both)
+Permits:
+  |_ FeedData.GenerationMix    { shares      : Map<String, Double> }   fractions 0..1
+  |_ FeedData.CarbonIntensity  { gramsPerKwh : Integer, intensityIndex : String }
+
+Mirrored in frontend/src/market.ts as TypeScript types.
+```
+
+The full walkthrough — the Level 1 context view, plain-text versions of these
+diagrams, and the Kafka design decisions (why one partition, why a compacted
+topic is the natural next step) — is in
+[docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md). The
+diagrams are `.drawio.svg` files: they render as normal images here and open
+directly in [diagrams.net](https://app.diagrams.net) for editing.
 
 ## External data sources
 

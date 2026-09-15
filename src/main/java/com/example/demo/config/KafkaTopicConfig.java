@@ -5,7 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
 
-import com.example.demo.messaging.Topics;
+import com.example.demo.kafka.topics.Topics;
 
 /** Declares the topics so Spring's KafkaAdmin creates them on startup.
  *  Single partition / single replica is fine for local dev. */
@@ -17,6 +17,7 @@ public class KafkaTopicConfig {
         return TopicBuilder.name(Topics.MARKET_DATA).partitions(1).replicas(1).build();
     }
 
+    //AI workflow, commented out first
     // @Bean
     // NewTopic insightRequestsTopic() {
     //     return TopicBuilder.name(Topics.INSIGHT_REQUESTS).partitions(1).replicas(1).build();

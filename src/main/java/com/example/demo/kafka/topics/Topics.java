@@ -1,4 +1,4 @@
-package com.example.demo.messaging;
+package com.example.demo.kafka.topics;
 
 //KAFKA topics
 public final class Topics {

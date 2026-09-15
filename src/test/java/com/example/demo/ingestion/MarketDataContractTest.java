@@ -1,13 +1,5 @@
 package com.example.demo.ingestion;
 
-import com.example.demo.ingestion.carbon.CarbonIntensityResponse;
-import com.example.demo.ingestion.model.FuelShare;
-import com.example.demo.ingestion.model.MarketData;
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Validation;
-import jakarta.validation.Validator;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -17,11 +9,21 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+
+import com.example.demo.ingestion.carbon.GenerationMix;
+import com.example.demo.ingestion.carbon.Intensity;
+import com.example.demo.ingestion.domain_contract.FuelShare;
+import com.example.demo.ingestion.domain_contract.MarketData;
+
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
 
 /**
  * The ingestion boundary: what the pipeline refuses to accept.
  *
- * <p>Two layers are under test. The wire DTO ({@link CarbonIntensityResponse})
+ * <p>Two layers are under test. The wire DTO ({@link GenerationMix}, {@link Intensity})
  * is checked with Bean Validation, exactly as {@code CarbonIntensityClient}
  * does after deserialising. The domain records ({@link FuelShare},
  * {@link MarketData}) enforce their own invariants in compact constructors, so
@@ -33,7 +35,7 @@ class MarketDataContractTest {
 
     private static final Validator VALIDATOR = Validation.buildDefaultValidatorFactory().getValidator();
 
-    // ---- FuelShare: compact constructor ----------------------------------
+    // FuelShare: compact constructor
 
     @Test
     void fuelShareAcceptsTheFullValidRange() {
@@ -55,7 +57,7 @@ class MarketDataContractTest {
         assertThrows(IllegalArgumentException.class, () -> new FuelShare("   ", 10.0));
     }
 
-    // ---- MarketData: compact constructor ----------------------------------
+    // MarketData: compact constructor
 
     @Test
     void marketDataCopiesTheMixDefensively() {
@@ -86,25 +88,25 @@ class MarketDataContractTest {
                 () -> new MarketData("", "2026-09-15T00:30Z", List.of(), null, null));
     }
 
-    // ---- CarbonIntensityResponse: Bean Validation on the wire DTO ---------
+    // GenerationMix / Intensity: Bean Validation on the wire DTO
 
     @Test
     void validWirePayloadPasses() {
-        CarbonIntensityResponse ok = new CarbonIntensityResponse(new CarbonIntensityResponse.Data(
+        GenerationMix ok = new GenerationMix(new GenerationMix.Data(
                 "2026-09-15T00:00Z", "2026-09-15T00:30Z",
-                List.of(new CarbonIntensityResponse.Entry("gas", 38.4),
-                        new CarbonIntensityResponse.Entry("wind", 61.6))));
+                List.of(new GenerationMix.Entry("gas", 38.4),
+                        new GenerationMix.Entry("wind", 61.6))));
 
         assertTrue(VALIDATOR.validate(ok).isEmpty());
     }
 
     @Test
     void wirePayloadWithOutOfRangeShareIsRejectedAndNamesTheField() {
-        CarbonIntensityResponse bad = new CarbonIntensityResponse(new CarbonIntensityResponse.Data(
+        GenerationMix bad = new GenerationMix(new GenerationMix.Data(
                 "2026-09-15T00:00Z", "2026-09-15T00:30Z",
-                List.of(new CarbonIntensityResponse.Entry("gas", 150.0))));
+                List.of(new GenerationMix.Entry("gas", 150.0))));
 
-        Set<ConstraintViolation<CarbonIntensityResponse>> violations = VALIDATOR.validate(bad);
+        Set<ConstraintViolation<GenerationMix>> violations = VALIDATOR.validate(bad);
 
         assertEquals(1, violations.size());
         assertEquals("data.generationmix[0].perc", violations.iterator().next().getPropertyPath().toString());
@@ -112,7 +114,7 @@ class MarketDataContractTest {
 
     @Test
     void wirePayloadWithEmptyMixIsRejected() {
-        CarbonIntensityResponse bad = new CarbonIntensityResponse(new CarbonIntensityResponse.Data(
+        GenerationMix bad = new GenerationMix(new GenerationMix.Data(
                 "2026-09-15T00:00Z", "2026-09-15T00:30Z", List.of()));
 
         assertFalse(VALIDATOR.validate(bad).isEmpty());
@@ -120,14 +122,14 @@ class MarketDataContractTest {
 
     @Test
     void wirePayloadWithMissingDataObjectIsRejected() {
-        assertFalse(VALIDATOR.validate(new CarbonIntensityResponse(null)).isEmpty());
+        assertFalse(VALIDATOR.validate(new GenerationMix(null)).isEmpty());
     }
 
     @Test
     void wirePayloadWithBlankFuelIsRejected() {
-        CarbonIntensityResponse bad = new CarbonIntensityResponse(new CarbonIntensityResponse.Data(
+        GenerationMix bad = new GenerationMix(new GenerationMix.Data(
                 "2026-09-15T00:00Z", "2026-09-15T00:30Z",
-                List.of(new CarbonIntensityResponse.Entry("", 50.0))));
+                List.of(new GenerationMix.Entry("", 50.0))));
 
         assertFalse(VALIDATOR.validate(bad).isEmpty());
     }

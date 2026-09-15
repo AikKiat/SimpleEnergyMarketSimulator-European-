@@ -1,18 +1,21 @@
 package com.example.demo.ingestion.carbon;
 
-import com.example.demo.ingestion.model.FuelShare;
-import com.example.demo.ingestion.model.MarketData;
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Validator;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import com.example.demo.ingestion.domain_contract.FuelShare;
+import com.example.demo.ingestion.domain_contract.MarketData;
+
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 
 /**
  * Fetches live GB market data from the Carbon Intensity API and maps it into our
@@ -26,73 +29,129 @@ public class CarbonIntensityClient {
     private final RestClient restClient;
     private final Validator validator;
 
+
+    //RestClient carbonIntensityRestClient is injected into this class
     public CarbonIntensityClient(RestClient carbonIntensityRestClient, Validator validator) {
         this.restClient = carbonIntensityRestClient;
         this.validator = validator;
     }
 
-    /**
-     * Calls GET /generation and GET /intensity, returning them as one snapshot.
-     *
-     * <p>The generation mix is mandatory: if it is missing or invalid the whole
-     * poll fails and the projector keeps serving the last good reading.
-     * Intensity is best-effort — a bad or absent intensity payload is logged and
-     * the mix is still published.
-     */
+    /*
+     Calls GET /generation and GET /intensity, returningas one snapshot.
+    */
+
     public MarketData fetchCurrentMarketData() {
-        CarbonIntensityResponse response = restClient.get()
-                .uri("/generation")
-                .retrieve()
-                .body(CarbonIntensityResponse.class);
 
-        if (response == null) {
-            throw new IllegalStateException("Carbon Intensity API returned an empty body for /generation");
+        try{
+            GenerationMix.Data data = fetch("/generation", GenerationMix.class).data();
+            List<FuelShare> mix = data.generationmix().stream()
+            .map(e -> new FuelShare(e.fuel(), e.perc()))
+            .sorted(Comparator.comparingDouble(FuelShare::perc).reversed())
+            .toList();
+
+            requireUsableGenerationData(data, mix);
+            
+            Intensity intensityResponse = fetch("/intensity", Intensity.class);
+            Intensity.IntensityData period = intensityResponse.data().getFirst();
+            Intensity.Reading reading = period.intensity();
+
+            requireUsableIntensity(reading);
+
+            Integer grams = reading.actual() != null ? reading.actual() : reading.forecast();
+            String index = reading.index();
+
+            return new MarketData(data.from(), data.to(), mix, grams, index);
+
+        } catch (Exception e){
+            log.warn("[CARBON INTENSITY API REST CLIENT] Error in fetching generation mix or intensity from /generation and /intensity respecitvely: {}", e.getMessage()); 
+
+            return null;
         }
-        requireValid(response, "/generation");
-
-        CarbonIntensityResponse.Data data = response.data();
-        List<FuelShare> mix = data.generationmix().stream()
-                .map(e -> new FuelShare(e.fuel(), e.perc()))
-                .sorted(Comparator.comparingDouble(FuelShare::perc).reversed())
-                .toList();
-
-        Integer grams = null;
-        String index = null;
-        try {
-            CarbonIntensityResponse.IntensityResponse intensity = restClient.get()
-                    .uri("/intensity")
-                    .retrieve()
-                    .body(CarbonIntensityResponse.IntensityResponse.class);
-
-            if (intensity != null) {
-                requireValid(intensity, "/intensity");
-                CarbonIntensityResponse.IntensityResponse.Intensity reading = intensity.data().get(0).intensity();
-                // 'actual' stays null until the settlement period closes.
-                grams = reading.actual() != null ? reading.actual() : reading.forecast();
-                index = reading.index();
-            }
-        } catch (Exception e) {
-            log.warn("Carbon intensity fetch failed (generation mix still OK): {}", e.getMessage());
-        }
-
-        return new MarketData(data.from(), data.to(), mix, grams, index);
     }
 
-    /**
-     * Fails fast with every violation named, e.g.
-     * {@code data.generationmix[3].perc: must be less than or equal to 100.0}.
-     * Sorted so the log line is stable and easy to compare between polls.
-     */
-    private <T> void requireValid(T payload, String endpoint) {
+
+    private <T extends CarbonIntensityApi> T fetch(String endpoint, Class<T> type) {
+        T body = restClient.get()
+            .uri(endpoint)
+            .retrieve()
+            .body(type);
+
+        if (body == null) {
+            throw new IllegalStateException("[CARBON INTENSITY API REST CLIENT] Carbon Intensity API returned an empty body for " + endpoint);
+        }
+        
+        requireValid(body, endpoint); //schema enforcement here
+        
+        return body;
+    }
+
+
+    private <T extends CarbonIntensityApi> void requireValid(T payload, String endpoint) {
         Set<ConstraintViolation<T>> violations = validator.validate(payload);
         if (violations.isEmpty()) {
             return;
         }
+        
         String detail = violations.stream()
-                .map(v -> v.getPropertyPath() + ": " + v.getMessage())
-                .sorted()
-                .collect(Collectors.joining("; "));
-        throw new IllegalStateException(
-                "Carbon Intensity API " + endpoint + " payload failed validation — " + detail);
+            .map(v -> v.getPropertyPath() + ": " + v.getMessage())
+            .sorted()
+            .collect(Collectors.joining("; "));
+    
+            throw new IllegalStateException("[CARBON INTENSITY API REST CLIENT] Carbon Intensity API " + endpoint + " payload failed validation - " + detail);
+    }
+
+
+    private void requireUsableGenerationData(
+        GenerationMix.Data data,
+        List<FuelShare> mix) {
+
+        List<String> problems = new ArrayList<>();
+
+        if (data.from() == null || data.from().isBlank()) {
+            problems.add("from is missing");
+        }
+
+        if (data.to() == null || data.to().isBlank()) {
+            problems.add("to is missing");
+        }
+
+        if (mix.isEmpty()) {
+            problems.add("generation mix is empty");
+        }
+
+        double totalPercentage = mix.stream()
+                .mapToDouble(FuelShare::perc)
+                .sum();
+
+        if (Math.abs(totalPercentage - 100.0) > 1.0) {
+            problems.add("generation shares total " + totalPercentage + "%, expected approximately 100%");
+        }
+
+        boolean hasInvalidShare = mix.stream()
+                .anyMatch(share -> !Double.isFinite(share.perc())
+                        || share.perc() < 0
+                        || share.perc() > 100);
+
+        if (hasInvalidShare) {
+            problems.add("generation share is outside 0-100%");
+        }
+
+        if (!problems.isEmpty()) {
+            throw new IllegalStateException("[CARBON INTENSITY API REST CLIENT] Invalid /generation data: " + String.join("; ", problems));
+        }
+    }
+
+    private void requireUsableIntensity(Intensity.Reading reading) {
+        if (reading == null) {
+            throw new IllegalStateException("[CARBON INTENSITY API REST CLIENT] Invalid /intensity data: no reading returned");
+        }
+
+        Integer gramsPerKwh = reading.actual() != null
+                ? reading.actual()
+                : reading.forecast();
+
+        if (gramsPerKwh == null || gramsPerKwh < 0) {
+            throw new IllegalStateException("[CARBON INTENSITY API REST CLIENT] Invalid /intensity data: no non-negative actual or forecast value");
+        }
     }
 }

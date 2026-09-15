@@ -17,7 +17,7 @@ public class CorsConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/**")
+        registry.addMapping("/api/**") //allow to all endpoints --> able to read from all endpoints
                 .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "POST")
                 .maxAge(3600);

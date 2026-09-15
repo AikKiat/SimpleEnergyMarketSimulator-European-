@@ -1,4 +1,4 @@
-package com.example.demo.market;
+package com.example.demo.dto;
 
 /** The access requirement for an external market-data source. */
 public enum FeedAccess {

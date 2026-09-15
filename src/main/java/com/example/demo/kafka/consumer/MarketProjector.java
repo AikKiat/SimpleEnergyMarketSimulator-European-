@@ -1,4 +1,4 @@
-package com.example.demo.market;
+package com.example.demo.kafka.consumer;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -9,9 +9,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-import com.example.demo.ingestion.model.FuelShare;
-import com.example.demo.ingestion.model.MarketData;
-import com.example.demo.messaging.Topics;
+import com.example.demo.dto.FeedAccess;
+import com.example.demo.dto.FeedData;
+import com.example.demo.dto.FeedView;
+import com.example.demo.dto.MarketSnapshot;
+import com.example.demo.ingestion.domain_contract.FuelShare;
+import com.example.demo.ingestion.domain_contract.MarketData;
+import com.example.demo.kafka.topics.Topics;
 
 /**
  * The LOAD end of the ETL, and the read model behind {@code /api/market/live}.

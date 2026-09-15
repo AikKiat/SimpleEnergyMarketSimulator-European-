@@ -1,4 +1,4 @@
-package com.example.demo.market;
+package com.example.demo.dto;
 
 import java.time.Instant;
 import java.util.Map;

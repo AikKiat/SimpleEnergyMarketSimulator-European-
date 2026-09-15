@@ -1,4 +1,4 @@
-package com.example.demo.market;
+package com.example.demo.dto;
 
 import jakarta.annotation.Nullable;
 

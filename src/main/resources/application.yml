@@ -35,16 +35,15 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
       properties:
         # Trust our own model packages when reconstructing JSON from the topic.
-        spring.json.trusted.packages: com.example.demo.ingestion.model,com.example.demo.insight
+        spring.json.trusted.packages: com.example.demo.ingestion.domain_contract,com.example.demo.insight
 
-# Application-specific knobs (read via @Value / @ConfigurationProperties).
 app:
   ingestion:
     carbon-intensity:
       base-url: https://api.carbonintensity.org.uk
       poll-interval-ms: 300000 #poll every 300000ms = 300 seconds = every 5 minute. Referenced in MarketDataPoller class
 
-  # Origins allowed to call /api/**. Add the Vercel URL here once deployed.
+
   cors:
     allowed-origins: http://localhost:5173,http://localhost:8080
 

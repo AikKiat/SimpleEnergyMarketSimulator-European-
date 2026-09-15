@@ -118,7 +118,7 @@ invalid event cannot be constructed on either side of Kafka.
 ```text
 Boundary 1 --> NESO Carbon Intensity API --> Spring backend   (wire DTOs, validated on arrival)
 
-CarbonIntensityApi  (ingestion.carbon; sealed marker interface)
+CarbonIntensityApi  (ingestion.carbon; sealed marker interface) (With @Bean validations)
 Permits:
   |_ GenerationMix   <-- GET /generation
   |_ Intensity       <-- GET /intensity
@@ -139,17 +139,14 @@ Intensity  (ingestion.carbon)
       |_ to        : String    (@NotBlank)
       |_ intensity : Reading   (@NotNull, @Valid)
 
+
+
 Reading
   |_ forecast : Integer   nullable
   |_ actual   : Integer   nullable until the settlement period closes
   |_ index    : String
 
-Cross-field rule, enforced in code because annotations cannot express it:
-  sum(perc) across the generation mix must be within 1% of 100
 
-              |  CarbonIntensityClient maps wire DTO --> MarketData
-              |  (anti-corruption layer: NESO's shape stops here)
-              v
 
 Boundary 2 --> Kafka event (poller -> topic -> projector)   (message schema)
 
@@ -160,24 +157,19 @@ MarketData  (ingestion.domain_contract)   invariants in the compact constructor:
   |_ carbonIntensityGramsPerKwh : Integer?          null, or >= 0
   |_ carbonIntensityIndex       : String?           nullable
 
+
 FuelShare  (ingestion.domain_contract)   compact constructor:
   |_ fuel : String   not null, not blank
-  |_ perc : double   0.0 .. 100.0, NaN rejected
+  |_ perc : double   0.0 .. 100.0, NaN is rejected
 
-The same constructors run when Jackson rebuilds the record on the consumer
-side, so a malformed message can never become a MarketData either.
 
-              |  MarketProjector.snapshot() projects the latest event
-              v
 
-Boundary 3 --> API response, backend -> browser   (serving contract)
+Boundary 3 --> API response, backend -> browser (serving contract)
 
 MarketSnapshot  (dto)
   |_ at         : java.time.Instant
-  |_ settlement : String?                "{from} -> {to}"  -- the spaces are part of
-                                         the contract: market.ts splits on " -> "
-  |_ feeds      : Map<String, FeedView>  keys: generationMix | carbonIntensity
-                                               | powerPrice | fuelPrices
+  |_ settlement : String?                "{from} -> {to}"
+  |_ feeds      : Map<String, FeedView>  keys: generationMix | carbonIntensity | powerPrice | fuelPrices
 
 FeedView  (dto)
   |_ status   : Status     enum, sent by name: AVAILABLE | NOT_WIRED | UNAVAILABLE
@@ -198,22 +190,9 @@ Permits:
   |_ FeedData.GenerationMix    { shares      : Map<String, Double> }   fractions 0..1
   |_ FeedData.CarbonIntensity  { gramsPerKwh : Integer, intensityIndex : String }
 
-Mirrored in frontend/src/market.ts as TypeScript types.
 ```
 
-The full walkthrough — the Level 1 context view, plain-text versions of these
-diagrams, and the Kafka design decisions (why one partition, why a compacted
-topic is the natural next step) — is in
-[docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md). The
-diagrams are `.drawio.svg` files: they render as normal images here and open
-directly in [diagrams.net](https://app.diagrams.net) for editing.
-
 ## External data sources
-
-The backend is a small ETL pipeline: poll --> publish to Kafka --> project into a
-read model --> serve `GET /api/market/live`. The frontend shows every feed with its
-provider, endpoint and cost, so it is always clear what is real and what is
-simulated.
 
 | Feed | Source | Endpoint | Region | Cost | Status |
 |---|---|---|---|---|---|
@@ -221,9 +200,6 @@ simulated.
 | Carbon intensity | Carbon Intensity API | `api.carbonintensity.org.uk/intensity` | Great Britain | Free, no key | **Live** |
 | Day-ahead / system power price | Elexon BMRS / ENTSO-E Transparency Platform | `bmrs.elexon.co.uk` / `transparency.entsoe.eu` | GB / EU bidding zones | Free, needs an API key | Not wired yet |
 | Fuel & carbon prices | Commercial market data (ICE, EEX and similar) | Subscription data terminals | NBP/TTF gas, API2 coal, EU ETS carbon | Paid | No free feed - simulated |
-
-Polled every 5 minutes; the upstream feed itself only updates every half hour, so
-polling harder just wastes calls.
 
 However, here are some caveats:
 
